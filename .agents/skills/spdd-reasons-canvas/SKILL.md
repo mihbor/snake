@@ -164,7 +164,7 @@ Input can be provided in two ways:
       - [Framework or technology choice]
       - [Integration pattern]
       - [Performance and security considerations]
-      - [Global exception handling strategy with GlobalExceptionHandler]
+      - [Error-handling strategy appropriate to the detected platform, when applicable]
 
    3. [Business Logic]:
       - [Core business rules]
@@ -173,7 +173,7 @@ Input can be provided in two ways:
    ```
 
    **Construction Guidance**:
-    - **Categorical Organization**: Organize by solution categories (API design, data processing, exception handling)
+    - **Categorical Organization**: Organize by solution categories relevant to the detected project (for example, presentation/API design, data processing, state management, or error handling)
     - **Architecture Decisions**: Provide key technical architecture choices and design patterns
     - **Best Practices**: Combine industry standards and experience summaries
     - **Decision Rationale**: Explain why specific solutions were chosen
@@ -199,25 +199,24 @@ Input can be provided in two ways:
    1. [Interface] interface defines [functionality description]
    2. [Implementation] implements [Interface] interface
    3. [DomainModel] extends [BaseModel] class
-   4. [BusinessException] extends RuntimeException class
+   4. [DomainError] follows the project's error representation (when applicable)
 
    ### Dependencies
    1. [ComponentA] calls [ComponentB]
-   2. [Service] depends on [Repository] and [ExternalService]
-   3. [Controller] injects [Service] and [ValidationService]
+   2. [ApplicationComponent] depends on [SupportingComponent] (when applicable)
+   3. [PresentationComponent] invokes [ApplicationComponent] (when applicable)
 
-   ### Layered Architecture
-   1. Controller Layer: [ResponsibilityDescription]
-   2. Service Layer: [ResponsibilityDescription]
-   3. Repository Layer: [ResponsibilityDescription]
-   4. Data Access Layer: [ResponsibilityDescription]
-   5. Exception Handling Layer: [GlobalExceptionHandler for unified error handling]
+   ### Architecture Boundaries
+   1. Presentation/API/UI Boundary: [ResponsibilityDescription]
+   2. Application/Service Boundary (when applicable): [ResponsibilityDescription]
+   3. Persistence/Integration Boundary (when applicable): [ResponsibilityDescription]
+   4. Error-Handling Boundary (when applicable): [ResponsibilityDescription]
    ```
 
    **Construction Guidance**:
     - **Inheritance System**: Clarify inheritance relationships of interfaces, abstract classes, and implementation classes
     - **Dependency Chain**: Define call and dependency relationships between components
-    - **Layered Design**: Reflect clear layered architecture (Controller → Service → Repository → DAO)
+    - **Layered Design**: Reflect the boundaries actually used by the detected project; do not invent Controller, Service, Repository, or DAO layers when they do not apply
     - **Responsibility Separation**: Responsibility boundaries and interaction interfaces of each layer
     - **Extension Interfaces**: Interfaces and extension points for future functionality expansion
 
@@ -247,38 +246,35 @@ Input can be provided in two ways:
           - [Step-by-step implementation logic]
           - [Conditional logic and edge cases]
           - [Error handling approach]
-   4. Annotations: [Required annotations]
+   4. Framework Metadata or Annotations (when applicable): [Required metadata]
    5. Constraints: [Validation rules and business constraints]
 
-   ### Implement [ServiceType] - [ServiceName]
-   1. Interface Definition: [Interface methods and contracts]
-   2. Core Methods: [methodName]([parameters]): [ReturnType]
+   ### Implement [ApplicationComponentType] - [ComponentName]
+   1. Public Contract (when applicable): [Interface methods and contracts]
+   2. Core Behavior: [operation]([inputs]): [Output]
       - Input Validation: [Input validation rules]
       - Business Logic: [Core business logic steps]
       - Exception Handling: [Exception handling strategy]
-      - Return Value: [Return value construction]
-   3. Dependency Injection: [Required dependencies]
-   4. Transaction Management: [Transaction boundary definition]
+      - Result or State Update: [Result construction or state transition]
+   3. Dependencies: [Required dependencies or collaborators]
+   4. State or Transaction Boundary (when applicable): [Boundary definition]
 
-   ### Create Exception Handler - GlobalExceptionHandler
-   1. Responsibility: Unified handling of global exceptions
-   2. Exception Types:
-      - BusinessException: [Business logic exceptions]
-      - ValidationException: [Input validation exceptions]
-      - SystemException: [System-level exceptions]
-   3. Methods:
-      - handleBusinessException(BusinessException): ResponseEntity<ErrorResponse>
-      - handleValidationException(ValidationException): ResponseEntity<ErrorResponse>
-   4. Annotations: @RestControllerAdvice, @ExceptionHandler
-   5. Response Format: Unified error response structure
+   ### Define Error-Handling Boundary - [ErrorHandlerName, if applicable]
+   1. Responsibility: Handle expected failures at the appropriate application, API, or UI boundary
+   2. Error Types:
+      - [Domain or business error]: [User-visible behavior]
+      - [Validation error]: [User-visible behavior]
+      - [Unexpected error]: [Safe fallback behavior]
+   3. Handling Contracts:
+      - [Error or exception type]: [Handling or presentation contract]
+   4. Framework Integration: [Platform-appropriate mechanism, if applicable]
+   5. Response or Presentation Rules: [Consistent user-visible error behavior]
 
-   ### Create Business Exception - [ExceptionName]
-   1. Inheritance: extends RuntimeException or BusinessException
-   2. Attributes:
-      - errorCode: String - Business error code
-      - errorMessage: String - Detailed error description
-   3. Constructors: Multiple constructors for different scenarios
-   4. Usage Scenarios: [When to throw this exception]
+   ### Define Domain Error - [ErrorType, if applicable]
+   1. Purpose: [Business or technical failure represented by this error]
+   2. Data or Attributes: [Information needed to present or handle the error]
+   3. Construction or Representation: [Platform-appropriate representation]
+   4. Usage Scenarios: [When the error is raised or displayed]
    ```
 
    **Construction Guidance**:
@@ -305,17 +301,13 @@ Input can be provided in two ways:
 
    ```
    ## Norms
-   1. Annotation Standards: [Specific annotation requirements for different component types]
-   2. Dependency Injection: [Dependency injection patterns and best practices]
-   3. Exception Handling:
-      - Custom exception type definitions and inheritance relationships
-      - Business exception class creation standards:
-        * Inherit RuntimeException or custom BusinessException base class
-        * Must include errorCode and errorMessage
-        * Provide multiple constructor methods
-        * Classify by business domain
-      - Unified error response format (ErrorResponse DTO)
-      - Logging and exception tracking mechanisms
+   1. Framework Metadata and Annotation Standards (when applicable): [Requirements for different component types]
+   2. Dependency Management: [Dependency injection or platform-appropriate wiring patterns]
+   3. Error Handling:
+      - Define error or exception types and handling boundaries appropriate to the detected platform
+      - Keep user-visible failure behavior consistent across the relevant entry points
+      - Do not expose sensitive internal information in user-visible errors
+      - Define logging and exception tracking mechanisms appropriate to the project
    4. Data Validation: [Common validation patterns and rules]
    5. Logging: [Logging standards and patterns]
    6. Documentation Standards: [Documentation and comment standards]
@@ -348,14 +340,13 @@ Input can be provided in two ways:
    3. Security Constraints: [Security requirements and compliance standards]
    4. Integration Constraints: [Integration limitations and compatibility requirements]
    5. Business Rule Constraints: [Business rule validation with specific conditions]
-   6. Exception Handling Constraints:
-      - Business exceptions must include clear error codes and error messages
-      - Exception types must be classified by business domain
-      - Exception information must not expose sensitive system internal information
-      - All business exceptions must be handled by GlobalExceptionHandler
+   6. Error Handling Constraints:
+      - Expected domain and validation failures must have clear user-visible outcomes
+      - Error information must not expose sensitive system internal information
+      - Errors must be handled at the appropriate application, API, or UI boundary
    7. Technical Constraints: [Technical implementation restrictions]
    8. Data Constraints: [Data validation rules and format requirements]
-   9. API Constraints: [API design standards and interface contracts]
+   9. API or Boundary Constraints (when applicable): [API, UI, or integration interface standards and contracts]
    ```
 
    **Construction Guidance**:
@@ -405,7 +396,7 @@ Input can be provided in two ways:
 5. **Save the fully-populated structured prompt to file**
 
    a. **Derive file name**: `{TICKET}-{TIMESTAMP}-{ACTION}-{scope}-{description}.md`
-    - **TICKET**: Extract ticket number (e.g., `PROJ-123`, `#42`, `ABC-1`) from business context if available; otherwise use the current story number
+    - **TICKET**: Extract ticket number (e.g., `PROJ-123`, `#42`, `ABC-1`) from business context if available; otherwise use the current story number; if neither is available, use `prompt`
     - **TIMESTAMP**: `YYYYMMDDHHmm` (current time)
     - **ACTION**: Infer from business context - `Feat`, `Fix`, `Refactor`, `Test`, `Docs`
     - **scope**: Infer from context - `api`, `service`, `repo`, `bq`, `db`, `util` (optional)
@@ -438,6 +429,8 @@ Input can be provided in two ways:
 
    > "The REASONS-Canvas structured prompt is ready. Would you like me to proceed with the implementation?"
 
+   If the user confirms, invoke `/spdd-generate` with the saved prompt file as input. If the user declines, stop after saving the prompt.
+
 **Output**
 
 A fully-populated, implementation-ready REASONS-Canvas structured prompt saved to `spdd/prompt/<file-name>.md`, then implementation upon user confirmation.
@@ -450,7 +443,7 @@ A fully-populated, implementation-ready REASONS-Canvas structured prompt saved t
 - Do NOT leave placeholders or TODO items - generate complete, specific content
 - Do NOT implement code before user confirms the structured prompt
 - File name MUST follow SPDD naming convention defined above
-- If no ticket number can be extracted from context, use the story number instead
+- If no ticket or story number can be extracted from context, use `prompt` as the filename identifier
 - Always create `spdd/prompt/` directory if it does not exist
 - Read codebase context when needed to generate accurate entity models and implementation tasks
 - Ensure all sections are logically coherent and support the business requirement

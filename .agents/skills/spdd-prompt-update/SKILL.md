@@ -47,7 +47,7 @@ Update Safeguards section to add rate limiting constraints
     - Operations
     - Norms
     - Safeguards
-      c. Understand the current architecture, entities, and constraints
+   c. Understand the current architecture, entities, and constraints
 
 3. **Analyze the update request**
 
@@ -55,11 +55,11 @@ Update Safeguards section to add rate limiting constraints
 
    | Change Type | Affected Sections |
          |-------------|-------------------|
-   | New functional requirement | R, E, A, S, O, possibly N, S |
-   | Architectural change | A, S, O, N |
-   | New entity/relationship | E, S, O |
-   | New constraint/safeguard | S (Safeguards), possibly O |
-   | Coding standard change | N, O |
+   | New functional requirement | Requirements, Entities, Approach, Structure, Operations, and possibly Norms or Safeguards |
+   | Architectural change | Approach, Structure, Operations, and Norms |
+   | New entity/relationship | Entities, Structure, and Operations |
+   | New constraint/safeguard | Safeguards and possibly Operations |
+   | Coding standard change | Norms and Operations |
    | Bug fix in specification | Targeted section only |
 
 4. **Read relevant codebase context (if needed)**
@@ -146,10 +146,10 @@ The SPDD prompt file is a **specification document**, not source code. It descri
     - Method signatures: "Method `findById(String id)` returns `Optional<Customer>`"
     - Query logic: "Query active subscriptions where customerId matches and date falls within effective range, ordered by createdAt DESC"
     - Interface contracts: "Interface defines methods: `save(Bill)`, `findByCustomerId(String)`"
-- **Allowed diagram blocks**: Mermaid diagrams for entity relationships are permitted (```mermaid)
+- **Allowed diagram blocks**: Mermaid diagrams for entity relationships are permitted
 - **Describe, don't implement**:
     - ✅ "Adapter converts between PO and domain entity using `toDomain()` and `fromDomain()` methods"
-    - ❌ ```java @Repository public class JpaCustomerRepositoryAdapter { ... } ```
+    - ❌ Including Java source such as `@Repository public class JpaCustomerRepositoryAdapter { ... }`
 - **Specification vs Implementation boundary**:
     - SPDD prompt = specification (describes contracts, behaviors, constraints)
     - Generated code = implementation (actual source files created by `/spdd-generate`)

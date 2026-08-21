@@ -126,7 +126,7 @@ Input can be provided in two ways:
    Child story documents use the story module/sequence identifier in the filename and the STORY identifier in the document heading:
 
    ```
-   ## STORY-{MODULE}-{SEQ} {Operation Description} API Development
+   ## STORY-{MODULE}-{SEQ} {Story Title}
    ```
 
    Do not use `STORY-001-{N}` inside an epic document. Do not use a global sequential number such as `Story-25` for a child story when its module/sequence identifier is available.
@@ -268,6 +268,24 @@ Input can be provided in two ways:
 
    ## Epic-{N} {Feature Name}
 
+   ### Background
+   [Epic background and business context]
+
+   ### Business Value
+   [Epic-level business value]
+
+   ### Dependencies and Assumptions
+   [Epic-level dependencies, assumptions, and constraints]
+
+   ### Scope In
+   [Epic-level scope included]
+
+   ### Scope Out
+   [Epic-level scope excluded]
+
+   ### Acceptance Criteria
+   [Epic-level acceptance criteria]
+
    ## Story Decomposition
 
    ### Abstract Task: "{Feature Name}"
@@ -285,11 +303,6 @@ Input can be provided in two ways:
 
    | Story | Title | Core Functional Points |
    |-------|-------|----------------------|
-
-   ---
-
-   ### Background
-   [Epic background, business value, scope, and epic-level acceptance criteria]
    ```
 
    **Child story file** — contains only the story itself, no repeated decomposition:
@@ -447,13 +460,7 @@ This command is the **story decomposition phase** of the SPDD workflow, transfor
 │  └────────────────────────────────────────────────────────────────┘    │
 │                              │                                          │
 │                              ▼                                          │
-│  Phase 3: /spdd-api-test                                               │
-│  ┌────────────────────────────────────────────────────────────────┐    │
-│  │ Generated Code + ACs → API Test Script                          │    │
-│  └────────────────────────────────────────────────────────────────┘    │
-│                              │                                          │
-│                              ▼                                          │
-│  Phase 4: /spdd-sync                                                   │
+│  Phase 3: /spdd-sync                                                   │
 │  ┌────────────────────────────────────────────────────────────────┐    │
 │  │ Code Changes → Analyze → Update Prompt → Consistency           │    │
 │  └────────────────────────────────────────────────────────────────┘    │

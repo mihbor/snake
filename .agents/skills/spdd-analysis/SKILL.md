@@ -314,7 +314,7 @@ An enriched context document saved to `spdd/analysis/<file-name>.md` that transf
 - Do NOT generate code — this command produces analysis only
 - Do NOT include implementation-level details (specific queries, JSON shapes, method signatures, annotations, component-layer inventories, step-by-step logic) — those belong in `/spdd-reasons-canvas`
 - Do NOT leave placeholders or TODO items — generate complete, specific content
-- Do NOT modify any existing files in the codebase
+- Do NOT modify application/source files or unrelated existing files. The only permitted writes are the generated analysis document and, after explicit user consent, the deferred-scope ledger described in Step 5.
 - Always read ALL `@` referenced files completely
 - Always create `spdd/analysis/` directory if it does not exist
 - File name MUST start with the extracted story number or explicit work-management ticket when either is available; otherwise use the `analysis` fallback

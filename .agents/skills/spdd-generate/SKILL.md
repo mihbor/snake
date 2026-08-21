@@ -78,8 +78,8 @@ Generate implementation code from a structured SPDD (Structured Prompt-Driven De
     - Business logic: Step-by-step implementation details
 
    b. **Apply Norms**:
-    - Annotation standards (e.g., @RestController, @Service)
-    - Dependency injection style (constructor injection)
+    - Framework metadata and annotation standards appropriate to the detected project
+    - Dependency injection or equivalent wiring style, when applicable
     - Exception handling patterns
     - Logging conventions
     - Response format standards
@@ -107,19 +107,19 @@ Generate implementation code from a structured SPDD (Structured Prompt-Driven De
 
    After ALL code is generated, perform unified validation:
 
-   a. **Compilation check**:
-    - Run linter to check for syntax errors
+   a. **Compilation and lint check**:
+    - Run the project's compile/build check and any applicable linter to detect syntax and type errors
     - Verify all imports are correct
     - Fix any type mismatches
 
    b. **Acceptance Criteria verification**:
     - Cross-check with the **Acceptance Criteria Traceability** table (if present)
     - Ensure each AC is addressed by the implementation
-    - Verify error codes, HTTP status codes, and messages match exactly
+    - Verify specified error codes, HTTP status codes, and messages match exactly when applicable
 
    c. **Structure verification**:
-    - Verify layered architecture is respected
-    - Confirm dependency injection is correct
+    - Verify the architecture boundaries declared in the prompt are respected
+    - Confirm dependency injection or equivalent wiring is correct when applicable
     - Check interface/implementation relationships
 
    d. **Fix any issues found**:
@@ -155,7 +155,7 @@ If issues are discovered after generation (during testing or code review), follo
 
 4. **Regenerate affected code**: Only regenerate the components affected by the prompt change
 
-5. **Commit together**: Commit the updated prompt and code together to maintain traceability
+5. **Commit together when requested**: If the user explicitly requests a commit, commit the updated prompt and code together to maintain traceability; otherwise leave the changes for user review
 
 **Example iteration**:
 ```
@@ -164,7 +164,7 @@ Issue: "AgentService interface shouldn't contain business logic"
 1. Trace: Operations section defines AgentService with logic
 2. Update prompt: Move logic to AgentServiceImpl in Operations
 3. Regenerate: Only regenerate AgentService and AgentServiceImpl
-4. Commit: Commit prompt change + code change together
+4. If requested, commit the prompt change and code change together; otherwise leave them for review
 ```
 
 **Output**
@@ -186,7 +186,7 @@ Issue: "AgentService interface shouldn't contain business logic"
 - Always follow Norms for coding style and patterns
 - Always verify against Acceptance Criteria after generation
 - Always check for and fix linter errors after batch generation
-- Always commit prompt and code changes together
+- When the user explicitly requests a commit, commit prompt and code changes together; otherwise do not create a commit automatically
 
 **Integration with /spdd-analysis and /spdd-reasons-canvas**
 
@@ -223,7 +223,7 @@ This command is the third phase of the SPDD workflow:
 │                              ▼                                          │
 │  Phase 4: Review & Iteration                                            │
 │  ┌────────────────────────────────────────────────────────────────┐    │
-│  │ Issue Found → Update Prompt → Regenerate → Commit Together     │    │
+│  │ Issue Found → Update Prompt → Regenerate → Review or Commit    │    │
 │  │                                                                 │    │
 │  │ Principle: "Fix prompt first, then update code"                │    │
 │  └────────────────────────────────────────────────────────────────┘    │
