@@ -1,0 +1,4 @@
+interface:
+  display_name: "SPDD Sync"
+  short_description: "Sync code into the prompt"
+  default_prompt: "Use $spdd-sync to compare these implementation changes with the structured prompt and propose synchronized updates."

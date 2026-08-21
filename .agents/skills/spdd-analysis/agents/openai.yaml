@@ -1,0 +1,4 @@
+interface:
+  display_name: "SPDD Analysis"
+  short_description: "Analyze requirements strategically"
+  default_prompt: "Use $spdd-analysis to analyze this business requirement against the codebase and save the enriched SPDD analysis."

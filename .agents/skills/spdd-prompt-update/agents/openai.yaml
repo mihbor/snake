@@ -1,0 +1,4 @@
+interface:
+  display_name: "SPDD Prompt Update"
+  short_description: "Update an SPDD prompt"
+  default_prompt: "Use $spdd-prompt-update to update this structured prompt while preserving its format and traceability."

@@ -1,0 +1,17 @@
+{
+	"name": "PlanetCiv Dev Container",
+	"build": {
+		"dockerfile": "Dockerfile"
+	},
+	"postCreateCommand": "npm ci",
+	"customizations": {
+		"vscode": {
+			"extensions": [
+				"dbaeumer.vscode-eslint",
+				"esbenp.prettier-vscode",
+				"ms-vscode.vscode-typescript-next"
+			]
+		}
+	},
+	"remoteUser": "node"
+}

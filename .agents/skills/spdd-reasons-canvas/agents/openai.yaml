@@ -1,0 +1,4 @@
+interface:
+  display_name: "SPDD REASONS Canvas"
+  short_description: "Create an implementation prompt"
+  default_prompt: "Use $spdd-reasons-canvas to turn this requirement into a complete REASONS Canvas prompt."

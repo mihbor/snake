@@ -1,0 +1,4 @@
+interface:
+  display_name: "SPDD Generate"
+  short_description: "Implement a structured prompt"
+  default_prompt: "Use $spdd-generate to implement this structured SPDD prompt and verify the result."
