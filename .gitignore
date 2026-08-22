@@ -1,6 +1,9 @@
 /spdd.iml
 /.idea/
 .gradle/
+.kotlin/
+kotlin-js-store/
+__pycache__/
 **/build/
 *.iml
 local.properties

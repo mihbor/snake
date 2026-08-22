@@ -1,4 +1,5 @@
 import org.jetbrains.compose.desktop.application.dsl.TargetFormat
+import org.jetbrains.kotlin.gradle.ExperimentalWasmDsl
 
 plugins {
     alias(libs.plugins.androidApplication)
@@ -7,11 +8,32 @@ plugins {
     alias(libs.plugins.kotlinMultiplatform)
 }
 
+private val semanticVersionPattern = Regex("^\\d+\\.\\d+\\.\\d+$")
+private val releaseVersion = providers.gradleProperty("releaseVersion").orElse("1.0.0").get()
+private val releaseVersionCode = providers.gradleProperty("releaseVersionCode").orElse("1").get().toIntOrNull()
+    ?: error("releaseVersionCode must be a positive integer")
+private val releaseTag = providers.gradleProperty("releaseTag").orNull
+
+require(semanticVersionPattern.matches(releaseVersion)) {
+    "releaseVersion must use semantic-version text such as 1.0.0"
+}
+require(releaseVersionCode > 0) { "releaseVersionCode must be a positive integer" }
+if (releaseTag != null) {
+    require(releaseTag == "v$releaseVersion") {
+        "releaseTag must match releaseVersion as v<version>"
+    }
+}
+
+@OptIn(ExperimentalWasmDsl::class)
 kotlin {
     jvmToolchain(21)
 
     androidTarget()
     jvm("desktop")
+    wasmJs {
+        browser()
+        binaries.executable()
+    }
 
     sourceSets {
         commonMain.dependencies {
@@ -33,6 +55,11 @@ kotlin {
                 implementation(compose.desktop.currentOs)
             }
         }
+        named("wasmJsMain") {
+            dependencies {
+                implementation(libs.kotlinx.browser)
+            }
+        }
     }
 }
 
@@ -44,8 +71,8 @@ android {
         applicationId = "com.example.snake"
         minSdk = libs.versions.minSdk.get().toInt()
         targetSdk = libs.versions.targetSdk.get().toInt()
-        versionCode = 1
-        versionName = "1.0"
+        versionCode = releaseVersionCode
+        versionName = releaseVersion
     }
 }
 
@@ -53,10 +80,15 @@ compose.desktop {
     application {
         mainClass = "com.example.snake.MainKt"
 
+        buildTypes.release.proguard {
+            version.set("7.5.0")
+            configurationFiles.from(project.file("compose-desktop.pro"))
+        }
+
         nativeDistributions {
             targetFormats(TargetFormat.Dmg, TargetFormat.Msi, TargetFormat.Deb)
             packageName = "snake"
-            packageVersion = "1.0.0"
+            packageVersion = releaseVersion
         }
     }
 }

@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="Play Snake in your browser or download the current release.">
+    <title>{{GAME_NAME}} {{VERSION}}</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<main class="site-shell">
+    <header class="release-header">
+        <p class="eyebrow">Offline arcade game</p>
+        <h1>{{GAME_NAME}}</h1>
+        <p class="release-version">Release <strong>{{VERSION}}</strong></p>
+    </header>
+
+    <section class="play-card" aria-labelledby="play-heading">
+        <div>
+            <p class="eyebrow">Browser edition</p>
+            <h2 id="play-heading">Play without installing</h2>
+            <p>Start a complete offline game session in a keyboard- or touch-capable browser.</p>
+        </div>
+        <a class="play-action" href="{{PLAY_URL}}">
+            <span>Play in browser</span>
+            <small>{{GAME_NAME}} {{VERSION}}</small>
+        </a>
+    </section>
+
+    <section class="downloads" aria-labelledby="downloads-heading">
+        <div class="section-heading">
+            <p class="eyebrow">Native packages</p>
+            <h2 id="downloads-heading">Downloads</h2>
+            <p>Every package below belongs to release {{VERSION}}.</p>
+        </div>
+        <ul class="download-list">
+{{DOWNLOAD_ITEMS}}
+        </ul>
+    </section>
+</main>
+</body>
+</html>

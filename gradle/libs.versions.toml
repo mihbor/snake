@@ -3,6 +3,7 @@ activityCompose = "1.10.1"
 agp = "8.7.3"
 composeMultiplatform = "1.7.3"
 coroutines = "1.10.1"
+browser = "0.3.1"
 compileSdk = "35"
 minSdk = "24"
 targetSdk = "35"
@@ -12,6 +13,7 @@ kotlin = "2.1.10"
 androidx-activity-compose = { module = "androidx.activity:activity-compose", version.ref = "activityCompose" }
 kotlinx-coroutines-core = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-core", version.ref = "coroutines" }
 kotlinx-coroutines-test = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-test", version.ref = "coroutines" }
+kotlinx-browser = { module = "org.jetbrains.kotlinx:kotlinx-browser", version.ref = "browser" }
 
 [plugins]
 androidApplication = { id = "com.android.application", version.ref = "agp" }

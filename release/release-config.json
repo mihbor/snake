@@ -1,0 +1,38 @@
+{
+  "gameName": "Snake",
+  "pagesBasePath": "/snake/",
+  "release": {
+    "defaultVersion": "1.0.0",
+    "androidVersionCode": 1
+  },
+  "browser": {
+    "availability": "AVAILABLE",
+    "pathTemplate": "releases/{version}/play/"
+  },
+  "platforms": [
+    {
+      "platform": "ANDROID",
+      "format": "APK",
+      "availability": "AVAILABLE",
+      "fileNameTemplate": "snake-{version}.apk"
+    },
+    {
+      "platform": "WINDOWS",
+      "format": "MSI",
+      "availability": "AVAILABLE",
+      "fileNameTemplate": "snake-{version}-windows.msi"
+    },
+    {
+      "platform": "MACOS",
+      "format": "DMG",
+      "availability": "AVAILABLE",
+      "fileNameTemplate": "snake-{version}-macos.dmg"
+    },
+    {
+      "platform": "LINUX",
+      "format": "DEB",
+      "availability": "AVAILABLE",
+      "fileNameTemplate": "snake-{version}-linux.deb"
+    }
+  ]
+}

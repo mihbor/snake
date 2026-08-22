@@ -1,0 +1,166 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mihbor.github.io/snake/release/manifest.schema.json",
+  "title": "Snake release manifest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "release",
+    "gameName",
+    "pagesBasePath",
+    "browser",
+    "artifacts",
+    "sourceRevision"
+  ],
+  "properties": {
+    "release": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["version", "tag"],
+      "properties": {
+        "version": {
+          "type": "string",
+          "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"
+        },
+        "tag": {
+          "type": "string",
+          "pattern": "^v[0-9]+\\.[0-9]+\\.[0-9]+$"
+        }
+      }
+    },
+    "gameName": {
+      "type": "string",
+      "minLength": 1
+    },
+    "pagesBasePath": {
+      "type": "string",
+      "pattern": "^/.*\\/$"
+    },
+    "browser": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["version", "availability", "playUrl", "path"],
+      "properties": {
+        "version": {
+          "type": "string",
+          "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"
+        },
+        "availability": {
+          "const": "AVAILABLE"
+        },
+        "playUrl": {
+          "type": "string",
+          "pattern": "^[^/].*/$"
+        },
+        "path": {
+          "type": "string",
+          "pattern": "^[^/].*/$"
+        }
+      }
+    },
+    "artifacts": {
+      "type": "array",
+      "minItems": 4,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/platformArtifact"
+      },
+      "allOf": [
+        {
+          "contains": {
+            "properties": {"platform": {"const": "ANDROID"}}
+          }
+        },
+        {
+          "contains": {
+            "properties": {"platform": {"const": "WINDOWS"}}
+          }
+        },
+        {
+          "contains": {
+            "properties": {"platform": {"const": "MACOS"}}
+          }
+        },
+        {
+          "contains": {
+            "properties": {"platform": {"const": "LINUX"}}
+          }
+        }
+      ]
+    },
+    "sourceRevision": {
+      "type": "string",
+      "minLength": 1
+    }
+  },
+  "$defs": {
+    "platformArtifact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "platform",
+        "version",
+        "format",
+        "availability",
+        "fileName"
+      ],
+      "properties": {
+        "platform": {
+          "enum": ["ANDROID", "WINDOWS", "MACOS", "LINUX"]
+        },
+        "version": {
+          "type": "string",
+          "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"
+        },
+        "format": {
+          "enum": ["APK", "MSI", "DMG", "DEB"]
+        },
+        "availability": {
+          "enum": ["AVAILABLE", "UNAVAILABLE"]
+        },
+        "fileName": {
+          "type": "string",
+          "pattern": "^[^/]+$",
+          "minLength": 1
+        },
+        "downloadUrl": {
+          "type": "string",
+          "format": "uri",
+          "pattern": "^https://github\\.com/[^/]+/[^/]+/releases/download/v[0-9]+\\.[0-9]+\\.[0-9]+/[^/]+$"
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[a-fA-F0-9]{64}$"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "availability": {
+                "const": "AVAILABLE"
+              }
+            }
+          },
+          "then": {
+            "required": ["downloadUrl", "sha256"]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "availability": {
+                "const": "UNAVAILABLE"
+              }
+            }
+          },
+          "then": {
+            "not": {
+              "required": ["downloadUrl"]
+            }
+          }
+        }
+      ]
+    }
+  }
+}
