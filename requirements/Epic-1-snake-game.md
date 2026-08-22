@@ -116,5 +116,6 @@ The game will be delivered as a Kotlin Compose Multiplatform application so that
 | STORY-001-003 | Finish and restart a game | Detect collisions; show game over; reset the session |
 | STORY-001-004 | Pause and resume play | Pause movement; preserve state; resume the session |
 | STORY-001-005 | Preserve the best score | Compare results; show the best result; retain it between sessions |
+| STORY-001-006 | Host the browser game and provide download builds | Publish browser play; provide Android and desktop downloads; align links with the current release |
 
 The recommended delivery order follows the player journey, but each story describes a visible business capability that can be demonstrated independently with the necessary game shell in place.
