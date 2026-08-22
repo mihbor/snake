@@ -18,6 +18,7 @@ from release.tools.release import (  # noqa: E402
     smoke_test,
     stage_site,
     validate_config,
+    validate_tag,
     validate_public_links,
     validate_manifest,
 )
@@ -142,6 +143,11 @@ class ReleaseToolsTest(unittest.TestCase):
         config["release"]["androidVersionCode"] = 0
         with self.assertRaises(ReleaseError):
             validate_config(config)
+
+    def test_release_version_must_have_positive_major_for_native_packages(self) -> None:
+        with self.assertRaises(ReleaseError):
+            validate_tag("0.1.0", "v0.1.0")
+        self.assertEqual("v1.0.0", validate_tag("1.0.0", "v1.0.0"))
 
     def test_public_link_redirect_to_another_release_is_rejected(self) -> None:
         config = copy.deepcopy(self.config)

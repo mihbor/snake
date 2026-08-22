@@ -20,7 +20,7 @@ from urllib.parse import unquote, urlparse
 from urllib.request import Request, urlopen
 
 
-VERSION_PATTERN = re.compile(r"^(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)$")
+VERSION_PATTERN = re.compile(r"^[1-9][0-9]*\.(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)$")
 SHA256_PATTERN = re.compile(r"^[a-fA-F0-9]{64}$")
 PLATFORM_FORMATS = {
     "ANDROID": "APK",
@@ -77,7 +77,10 @@ def write_json(path: Path, value: dict) -> None:
 
 def validate_version(version: str) -> str:
     if not isinstance(version, str) or not VERSION_PATTERN.fullmatch(version):
-        raise ReleaseError("release version must be semantic-version text such as 1.0.0")
+        raise ReleaseError(
+            "release version must use semantic-version text with a positive major version "
+            "such as 1.0.0"
+        )
     return version
 
 

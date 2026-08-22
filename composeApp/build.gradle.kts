@@ -8,14 +8,14 @@ plugins {
     alias(libs.plugins.kotlinMultiplatform)
 }
 
-private val semanticVersionPattern = Regex("^\\d+\\.\\d+\\.\\d+$")
+private val semanticVersionPattern = Regex("^[1-9][0-9]*\\.(?:0|[1-9][0-9]*)\\.(?:0|[1-9][0-9]*)$")
 private val releaseVersion = providers.gradleProperty("releaseVersion").orElse("1.0.0").get()
 private val releaseVersionCode = providers.gradleProperty("releaseVersionCode").orElse("1").get().toIntOrNull()
     ?: error("releaseVersionCode must be a positive integer")
 private val releaseTag = providers.gradleProperty("releaseTag").orNull
 
 require(semanticVersionPattern.matches(releaseVersion)) {
-    "releaseVersion must use semantic-version text such as 1.0.0"
+    "releaseVersion must use semantic-version text with a positive major version such as 1.0.0"
 }
 require(releaseVersionCode > 0) { "releaseVersionCode must be a positive integer" }
 if (releaseTag != null) {
