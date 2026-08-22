@@ -3,12 +3,17 @@
 	"build": {
 		"dockerfile": "Dockerfile"
 	},
-	"postCreateCommand": "./gradlew test",
+	"postCreateCommand": "./gradlew test && python3 -m unittest discover -s release/tests",
+	"mounts": [
+		"type=volume,source=snake-gradle-cache,target=/home/vscode/.gradle"
+	],
 	"customizations": {
 		"vscode": {
 			"extensions": [
 				"fwcd.kotlin",
-				"vscjava.vscode-gradle"
+				"vscjava.vscode-gradle",
+				"github.vscode-github-actions",
+				"redhat.vscode-yaml"
 			]
 		}
 	},
