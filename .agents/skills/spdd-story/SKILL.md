@@ -1,6 +1,5 @@
 ---
-id: spdd-story
-category: Development
+name: spdd-story
 description: Decompose high-level feature requirements into INVEST-compliant, business-focused stories with clear scope boundaries and testable acceptance criteria
 ---
 

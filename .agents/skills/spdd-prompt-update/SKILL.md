@@ -1,6 +1,5 @@
 ---
-id: spdd-prompt-update
-category: Development
+name: spdd-prompt-update
 description: Update an existing SPDD prompt file with new requirements or architectural changes while preserving the REASONS Canvas structure
 ---
 
