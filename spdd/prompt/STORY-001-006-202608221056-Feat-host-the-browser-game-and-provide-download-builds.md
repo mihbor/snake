@@ -19,7 +19,7 @@ Implement the release publication surface for the Snake game so an unauthenticat
 ### Explicit decisions for this increment
 
 - The default project Pages address is `https://mihbor.github.io/snake/`; the deployment must keep the project base path configurable rather than baking a domain-root assumption into the browser build.
-- The canonical release identity is the Git tag and GitHub Release tag `v1.0.0`. The tag version is the only version used to generate the page, browser path, native asset names, and visible labels for that publication.
+- The canonical release identity is the configured release version `1.0.0` and its matching GitHub Release tag `v1.0.0`. The workflow reads the version from `release/release-config.json` on a `main` push or manual dispatch and creates or updates the matching GitHub Release; no pre-existing Git tag push is required.
 - Native artifacts are hosted as public assets on the matching GitHub Release, while GitHub Pages remains the discovery surface and hosts the browser distribution. Do not copy native binaries into the Pages repository artifact.
 - Use the initial asset names `snake-1.0.0.apk`, `snake-1.0.0-windows.msi`, `snake-1.0.0-macos.dmg`, and `snake-1.0.0-linux.deb`. The naming rule must remain derivable from the canonical version and platform rather than from an unversioned `latest` URL.
 - The browser distribution is published under a versioned Pages path such as `releases/1.0.0/play/`; the current landing page points to that exact path. Relative URLs must work when the site is served at `/snake/`.
@@ -34,7 +34,7 @@ Implement the release publication surface for the Snake game so an unauthenticat
 - The browser action opens the versioned browser build and the shared game can start and complete a session on keyboard-capable and touch-capable browsers once the gameplay prerequisite is complete.
 - The Android, Windows, macOS, and Linux actions each resolve to a public asset for `1.0.0` when that platform is declared and built; missing platforms have no dead current link.
 - A single validated manifest supplies the displayed version, browser location, platform availability, labels, and native URLs.
-- Updating the release tag and artifacts produces a new current page and matching links without retaining stale artifact metadata as current.
+- Updating the configured release version and artifacts produces a new current page and matching links without retaining stale artifact metadata as current.
 - Common game tests and browser/landing-page release checks pass, and all configured production targets compile.
 
 ## Entities
@@ -147,7 +147,7 @@ ArtifactCheck --> BrowserArtifact : verifies
    - Do not make the release story responsible for gameplay features that belong to `STORY-001-002` through `STORY-001-005`; use shared tests and a readiness gate to prove the prerequisite instead.
 
 2. **Use one canonical release manifest**:
-   - Derive the published version from the `v<version>` Git tag and pass it into Gradle, the browser path, native package names, GitHub Release asset URLs, and the generated landing page.
+   - Derive the published version from the configured release version and pass it into Gradle, the browser path, native package names, GitHub Release asset URLs, and the generated landing page; derive the matching `v<version>` GitHub Release tag in the workflow.
    - Centralize the local/default release version and Android numeric version code so `composeApp/build.gradle.kts` cannot keep divergent `1.0` and `1.0.0` values.
    - Generate a manifest containing only validated browser and native artifact records. The page renderer must consume this manifest rather than constructing platform links independently.
    - Keep URLs immutable for a release by using a versioned Pages path and GitHub Release tag asset paths; never use an unqualified `latest` URL for a current action.
@@ -165,7 +165,7 @@ ArtifactCheck --> BrowserArtifact : verifies
    - Retain native binaries outside the Pages deployment so site updates remain small and historical release tags remain independently addressable.
 
 5. **Promote releases with readiness checks and a single deployment**:
-   - Use a tag-triggered GitHub Actions workflow to build the browser distribution and native matrix, create or update the matching GitHub Release, generate the manifest, validate every available public URL, and assemble one Pages deployment artifact.
+   - Use a `main`-push or manually dispatched GitHub Actions workflow to build the browser distribution and native matrix, create or update the matching GitHub Release, generate the manifest, validate every available public URL, and assemble one Pages deployment artifact.
    - Deploy the Pages artifact only after the manifest is internally coherent and all referenced assets are publicly reachable. Generate the current landing page and versioned browser directory in a staging directory, then deploy that directory as one unit.
    - Keep the previous current Pages deployment when a new release fails validation; never publish a page that names the new version while referencing partial or older artifacts.
    - Make the workflow safe to rerun for the same tag by replacing only the matching release assets and regenerating the same manifest, while refusing a tag whose version disagrees with build metadata.
@@ -181,7 +181,7 @@ ArtifactCheck --> BrowserArtifact : verifies
 5. `release/manifest.schema.json`: machine-readable contract for the generated manifest, including one release identity, browser path, platform records, availability, and integrity metadata.
 6. `release/tools`: small deterministic validation/rendering utilities for manifest generation, version checks, link checks, and static landing-page assembly; utilities must fail closed on malformed or incomplete release data.
 7. `site/index.template.html` and `site/styles.css`: static landing-page template and responsive presentation styles; generated output is staged for deployment rather than hand-edited per release.
-8. `.github/workflows/release.yml`: coordinated tag-triggered build, artifact upload, manifest generation, readiness validation, and GitHub Pages deployment workflow.
+8. `.github/workflows/release.yml`: coordinated main/manual-triggered build, artifact upload, manifest generation, readiness validation, and GitHub Pages deployment workflow.
 9. `composeApp/src/commonTest/kotlin/com/example/snake/game`: existing shared gameplay tests; release validation tests/scripts should remain separate from pure game-rule tests.
 
 ### Dependencies
@@ -260,7 +260,7 @@ ArtifactCheck --> BrowserArtifact : verifies
 1. **Responsibility**: Produce the browser, Android, and desktop files that the manifest may expose.
 2. **Build operations**:
    - Build the browser distribution and stage it under `releases/<version>/play/`.
-   - Build the Android release APK and the configured desktop MSI, DMG, and DEB packages from the same tag revision.
+   - Build the Android release APK and the configured desktop MSI, DMG, and DEB packages from the same workflow source revision.
    - Rename or copy outputs into the canonical `snake-<version>-<platform>.<format>` names without altering package contents or silently accepting a different embedded version.
    - Calculate SHA-256 checksums and retain file-size and non-empty-file validation results for manifest generation and CI logs.
 3. **Validation operations**:
@@ -273,7 +273,7 @@ ArtifactCheck --> BrowserArtifact : verifies
 
 1. **Responsibility**: Make native packages publicly retrievable from immutable, versioned locations before the Pages page advertises them.
 2. **Workflow operations**:
-   - Trigger from a release tag and create or update only the matching GitHub Release.
+   - Trigger from a `main` push or manual workflow dispatch, read the configured release version, and create or update only the matching GitHub Release tag; do not require a pre-existing Git tag.
    - Upload the canonical APK/MSI/DMG/DEB assets that are marked available; do not upload an asset under a misleading platform name.
    - Construct URLs from the repository, exact tag, and exact asset name, then generate checksums and manifest records from the uploaded files.
    - Validate each URL using an unauthenticated public request with redirects enabled and a successful response; verify the returned asset is non-empty and has the expected name where the host exposes it.
@@ -301,7 +301,7 @@ ArtifactCheck --> BrowserArtifact : verifies
    - Assemble a staging directory containing the generated landing page, `release.json`, styles, the versioned browser distribution, and no unvalidated current links.
    - Verify the landing page's browser URL and every available native URL against the same manifest before deployment; verify browser assets under the configured `/snake/` base path.
    - Deploy the complete staging directory through the repository's GitHub Pages workflow after native Release assets are public. Treat the Pages deployment as the final promotion step.
-   - Keep versioned paths and release assets traceable to their tag. A newly generated current page must not point at an older path merely because that path is reachable.
+   - Keep versioned paths and release assets traceable to the configured version and generated GitHub Release tag. A newly generated current page must not point at an older path merely because that path is reachable.
 3. **Failure and replacement rules**:
    - If staging, link validation, browser smoke checks, or deployment preparation fails, leave the previous current page unchanged and report the failed release.
    - A new successful deployment may replace the current page, but must not present an older manifest or unversioned `latest` link as current.
@@ -328,7 +328,7 @@ ArtifactCheck --> BrowserArtifact : verifies
 ## Norms
 
 1. **Shared implementation**: Keep gameplay state, rules, controller, and game presentation shared across Android, desktop, and browser; target source sets may only adapt launch, lifecycle, viewport, and input capability concerns.
-2. **Version management**: Treat the exact Git tag version as canonical for a publication. Propagate it to all artifacts and generated metadata; never hand-edit one platform's version or use a mutable `latest` URL for a current action.
+2. **Version management**: Treat the exact configured release version as canonical for a publication and derive its matching GitHub Release tag in the workflow. Propagate it to all artifacts and generated metadata; never hand-edit one platform's version or use a mutable `latest` URL for a current action.
 3. **Manifest discipline**: Generate the public manifest from validated build outputs. Keep availability explicit, platform records unique, and unavailable records non-clickable.
 4. **Static-site design**: Prefer static HTML/CSS and versioned relative paths for the Pages surface. The landing page must work without a backend, account, GitHub API access, or a visitor-side release-discovery request.
 5. **Base-path behavior**: Test both the local server root and the deployed `/snake/` project path. Do not assume that `/assets/...` or `/play/...` resolves correctly from a project Pages site.

@@ -2,8 +2,9 @@ name: Release Snake
 
 on:
   push:
-    tags:
-      - "v*.*.*"
+    branches:
+      - main
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -18,10 +19,11 @@ env:
   PAGES_BASE_PATH: ${{ vars.PAGES_BASE_PATH || '/snake/' }}
 
 jobs:
-  validate_tag:
+  validate_release:
     runs-on: ubuntu-latest
     outputs:
       version: ${{ steps.version.outputs.version }}
+      release_tag: ${{ steps.version.outputs.release_tag }}
       version_code: ${{ steps.version.outputs.version_code }}
       android: ${{ steps.version.outputs.android }}
       windows: ${{ steps.version.outputs.windows }}
@@ -30,18 +32,20 @@ jobs:
     steps:
       - name: Check out source
         uses: actions/checkout@v4
-      - name: Validate release tag
+      - name: Validate configured release
         id: version
         shell: bash
         run: |
           set -euo pipefail
-          version="${GITHUB_REF_NAME#v}"
-          python3 release/tools/release.py validate-tag \
-            --version "$version" \
-            --tag "$GITHUB_REF_NAME"
           python3 release/tools/release.py validate-config \
             --input release/release-config.json
+          version="$(python3 -c 'import json; print(json.load(open("release/release-config.json", encoding="utf-8"))["release"]["defaultVersion"])')"
+          release_tag="v${version}"
+          python3 release/tools/release.py validate-tag \
+            --version "$version" \
+            --tag "$release_tag"
           echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "release_tag=$release_tag" >> "$GITHUB_OUTPUT"
           python3 - "$GITHUB_OUTPUT" <<'PY'
           import json
           import sys
@@ -59,7 +63,7 @@ jobs:
           PY
 
   test-and-build-browser:
-    needs: validate_tag
+    needs: validate_release
     runs-on: ubuntu-latest
     steps:
       - name: Check out source
@@ -72,13 +76,13 @@ jobs:
       - name: Build and test shared game
         run: |
           ./gradlew :composeApp:desktopTest \
-            -PreleaseVersion="${{ needs.validate_tag.outputs.version }}" \
-            -PreleaseTag="$GITHUB_REF_NAME"
+            -PreleaseVersion="${{ needs.validate_release.outputs.version }}" \
+            -PreleaseTag="${{ needs.validate_release.outputs.release_tag }}"
       - name: Build browser distribution
         run: |
           ./gradlew :composeApp:wasmJsBrowserProductionWebpack \
-            -PreleaseVersion="${{ needs.validate_tag.outputs.version }}" \
-            -PreleaseTag="$GITHUB_REF_NAME"
+            -PreleaseVersion="${{ needs.validate_release.outputs.version }}" \
+            -PreleaseTag="${{ needs.validate_release.outputs.release_tag }}"
           browser_dir="composeApp/build/kotlin-webpack/wasmJs/productionExecutable"
           browser_entry="composeApp/build/processedResources/wasmJs/main/index.html"
           test -f "$browser_entry"
@@ -93,7 +97,7 @@ jobs:
           if-no-files-found: error
 
   build-android:
-    needs: validate_tag
+    needs: validate_release
     runs-on: ubuntu-latest
     steps:
       - name: Check out source
@@ -104,29 +108,29 @@ jobs:
           distribution: temurin
           java-version: "21"
       - name: Set up Android SDK
-        if: needs.validate_tag.outputs.android == 'true'
+        if: needs.validate_release.outputs.android == 'true'
         uses: android-actions/setup-android@v3
       - name: Build release APK
-        if: needs.validate_tag.outputs.android == 'true'
+        if: needs.validate_release.outputs.android == 'true'
         shell: bash
         run: |
           set -euo pipefail
-          version="${{ needs.validate_tag.outputs.version }}"
+          version="${{ needs.validate_release.outputs.version }}"
           ./gradlew :composeApp:assembleRelease \
             -PreleaseVersion="$version" \
-            -PreleaseVersionCode="${{ needs.validate_tag.outputs.version_code }}" \
-            -PreleaseTag="$GITHUB_REF_NAME"
+            -PreleaseVersionCode="${{ needs.validate_release.outputs.version_code }}" \
+            -PreleaseTag="${{ needs.validate_release.outputs.release_tag }}"
           apk="composeApp/build/outputs/apk/release/composeApp-release-unsigned.apk"
           test -s "$apk"
           mkdir -p artifacts
           cp "$apk" "artifacts/snake-${version}.apk"
       - name: Validate Android package metadata
-        if: needs.validate_tag.outputs.android == 'true'
+        if: needs.validate_release.outputs.android == 'true'
         shell: bash
         run: |
           set -euo pipefail
-          version="${{ needs.validate_tag.outputs.version }}"
-          version_code="${{ needs.validate_tag.outputs.version_code }}"
+          version="${{ needs.validate_release.outputs.version }}"
+          version_code="${{ needs.validate_release.outputs.version_code }}"
           apk="composeApp/build/outputs/apk/release/composeApp-release-unsigned.apk"
           sdk_root="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-}}"
           aapt="$(find "$sdk_root/build-tools" -type f -name aapt -print | sort -V | tail -n 1)"
@@ -143,7 +147,7 @@ jobs:
           [[ "$apk_version_code" =~ ^[1-9][0-9]*$ ]]
           test "$apk_version_code" = "$version_code"
       - name: Upload Android artifact
-        if: needs.validate_tag.outputs.android == 'true'
+        if: needs.validate_release.outputs.android == 'true'
         uses: actions/upload-artifact@v4
         with:
           name: native-android
@@ -151,7 +155,7 @@ jobs:
           if-no-files-found: error
 
   build-desktop:
-    needs: validate_tag
+    needs: validate_release
     strategy:
       fail-fast: true
       matrix:
@@ -182,14 +186,14 @@ jobs:
           java-version: "21"
       - name: Build desktop package
         id: package
-        if: needs.validate_tag.outputs[matrix.availability] == 'true'
+        if: needs.validate_release.outputs[matrix.availability] == 'true'
         shell: bash
         run: |
           set -euo pipefail
-          version="${{ needs.validate_tag.outputs.version }}"
+          version="${{ needs.validate_release.outputs.version }}"
           ./gradlew ":composeApp:${{ matrix.task }}" \
             -PreleaseVersion="$version" \
-            -PreleaseTag="$GITHUB_REF_NAME"
+            -PreleaseTag="${{ needs.validate_release.outputs.release_tag }}"
           source_file="$(find composeApp/build/compose/binaries/main-release -type f -iname '*.${{ matrix.format }}' -print -quit)"
           test -n "$source_file"
           test -s "$source_file"
@@ -197,19 +201,19 @@ jobs:
           cp "$source_file" "artifacts/snake-${version}-${{ matrix.platform }}.${{ matrix.format }}"
           echo "source_file=$source_file" >> "$GITHUB_OUTPUT"
       - name: Validate Linux package metadata
-        if: needs.validate_tag.outputs[matrix.availability] == 'true' && matrix.platform == 'linux'
+        if: needs.validate_release.outputs[matrix.availability] == 'true' && matrix.platform == 'linux'
         shell: bash
         run: |
           set -euo pipefail
-          version="${{ needs.validate_tag.outputs.version }}"
+          version="${{ needs.validate_release.outputs.version }}"
           package="${{ steps.package.outputs.source_file }}"
           test "$(dpkg-deb -f "$package" Version)" = "$version"
       - name: Validate macOS package metadata
-        if: needs.validate_tag.outputs[matrix.availability] == 'true' && matrix.platform == 'macos'
+        if: needs.validate_release.outputs[matrix.availability] == 'true' && matrix.platform == 'macos'
         shell: bash
         run: |
           set -euo pipefail
-          version="${{ needs.validate_tag.outputs.version }}"
+          version="${{ needs.validate_release.outputs.version }}"
           package="${{ steps.package.outputs.source_file }}"
           mount_point="$(mktemp -d)"
           cleanup() {
@@ -223,10 +227,10 @@ jobs:
           package_version="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$app/Contents/Info.plist")"
           test "$package_version" = "$version"
       - name: Validate Windows package metadata
-        if: needs.validate_tag.outputs[matrix.availability] == 'true' && matrix.platform == 'windows'
+        if: needs.validate_release.outputs[matrix.availability] == 'true' && matrix.platform == 'windows'
         shell: pwsh
         run: |
-          $version = "${{ needs.validate_tag.outputs.version }}"
+          $version = "${{ needs.validate_release.outputs.version }}"
           $package = "${{ steps.package.outputs.source_file }}"
           $installer = New-Object -ComObject WindowsInstaller.Installer
           $database = $installer.OpenDatabase((Resolve-Path $package).Path, 0)
@@ -237,7 +241,7 @@ jobs:
             throw "MSI ProductVersion does not match $version"
           }
       - name: Upload desktop artifact
-        if: needs.validate_tag.outputs[matrix.availability] == 'true'
+        if: needs.validate_release.outputs[matrix.availability] == 'true'
         uses: actions/upload-artifact@v4
         with:
           name: native-${{ matrix.platform }}
@@ -246,7 +250,7 @@ jobs:
 
   prepare-publication:
     needs:
-      - validate_tag
+      - validate_release
       - test-and-build-browser
       - build-android
       - build-desktop
@@ -262,28 +266,28 @@ jobs:
           name: browser-distribution
           path: browser-dist
       - name: Download Android artifact
-        if: needs.validate_tag.outputs.android == 'true'
+        if: needs.validate_release.outputs.android == 'true'
         uses: actions/download-artifact@v4
         with:
           name: native-android
           path: release/artifacts
           merge-multiple: true
       - name: Download Windows artifact
-        if: needs.validate_tag.outputs.windows == 'true'
+        if: needs.validate_release.outputs.windows == 'true'
         uses: actions/download-artifact@v4
         with:
           name: native-windows
           path: release/artifacts
           merge-multiple: true
       - name: Download macOS artifact
-        if: needs.validate_tag.outputs.macos == 'true'
+        if: needs.validate_release.outputs.macos == 'true'
         uses: actions/download-artifact@v4
         with:
           name: native-macos
           path: release/artifacts
           merge-multiple: true
       - name: Download Linux artifact
-        if: needs.validate_tag.outputs.linux == 'true'
+        if: needs.validate_release.outputs.linux == 'true'
         uses: actions/download-artifact@v4
         with:
           name: native-linux
@@ -293,24 +297,26 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          version="${{ needs.validate_tag.outputs.version }}"
-          test "${GITHUB_REF_NAME}" = "v${version}"
-          gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1 || \
-            gh release create "$GITHUB_REF_NAME" \
+          version="${{ needs.validate_release.outputs.version }}"
+          release_tag="${{ needs.validate_release.outputs.release_tag }}"
+          gh release view "$release_tag" >/dev/null 2>&1 || \
+            gh release create "$release_tag" \
+              --target "$GITHUB_SHA" \
               --title "Snake ${version}" \
               --generate-notes
           if compgen -G "release/artifacts/*" > /dev/null; then
-            gh release upload "$GITHUB_REF_NAME" release/artifacts/* --clobber
+            gh release upload "$release_tag" release/artifacts/* --clobber
           fi
       - name: Generate and validate release manifest
         shell: bash
         run: |
           set -euo pipefail
-          version="${{ needs.validate_tag.outputs.version }}"
+          version="${{ needs.validate_release.outputs.version }}"
+          release_tag="${{ needs.validate_release.outputs.release_tag }}"
           python3 release/tools/release.py generate-manifest \
             --config release/release-config.json \
             --version "$version" \
-            --tag "$GITHUB_REF_NAME" \
+            --tag "$release_tag" \
             --repository "$GITHUB_REPOSITORY" \
             --artifacts-dir release/artifacts \
             --source-revision "$GITHUB_SHA" \
@@ -326,7 +332,7 @@ jobs:
             --styles site/styles.css \
             --browser-dir browser-dist \
             --output site-dist
-          version="${{ needs.validate_tag.outputs.version }}"
+          version="${{ needs.validate_release.outputs.version }}"
           test -s site-dist/index.html
           test -s site-dist/styles.css
           test -s site-dist/release.json
