@@ -3,12 +3,11 @@ package com.example.snake.game.ui
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.sizeIn
@@ -18,6 +17,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
@@ -70,67 +70,88 @@ fun GameScreen(
         Modifier
     }
 
-    Column(
+    BoxWithConstraints(
         modifier = modifier
             .fillMaxSize()
             .focusRequester(focusRequester)
             .focusable(enabled = capabilities.keyboard)
-            .then(keyboardModifier)
-            .verticalScroll(rememberScrollState())
-            .padding(16.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
+            .then(keyboardModifier),
     ) {
-        Text("Snake", style = MaterialTheme.typography.headlineMedium)
-        Spacer(modifier = Modifier.size(8.dp))
-        Text(
-            text = "Score: ${state.score}",
-            style = MaterialTheme.typography.titleMedium,
-            modifier = Modifier.semantics { contentDescription = "Current score: ${state.score}" },
-        )
-        Spacer(modifier = Modifier.size(8.dp))
-        SnakeBoard(state)
-        Spacer(modifier = Modifier.size(12.dp))
+        // A scrollable Column is measured with an unbounded height. Calculate the board size
+        // from the window constraints before entering that scrollable layout so the initial
+        // action and the active controls remain reachable in the default desktop window.
+        val availableHeight = if (maxHeight.value.isFinite()) maxHeight else maxWidth
+        val boardFraction = when {
+            state.status == com.example.snake.game.model.SessionStatus.READY -> 0.44f
+            capabilities.touch -> 0.34f
+            else -> 0.58f
+        }
+        val boardSize = maxOf(1.dp, minOf(maxWidth - 32.dp, availableHeight * boardFraction))
 
-        if (state.status == com.example.snake.game.model.SessionStatus.READY) {
-            Text("Ready to play")
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .verticalScroll(rememberScrollState())
+                .padding(16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            Text("Snake", style = MaterialTheme.typography.headlineMedium)
             Spacer(modifier = Modifier.size(8.dp))
-            Button(onClick = onStart) {
-                Text("Start New Game")
-            }
+            Text(
+                text = "Score: ${state.score}",
+                style = MaterialTheme.typography.titleMedium,
+                modifier = Modifier.semantics { contentDescription = "Current score: ${state.score}" },
+            )
             Spacer(modifier = Modifier.size(8.dp))
-            Text(controlHint(capabilities))
-        } else {
-            Text("Direction: ${state.currentDirection.name.lowercase()}")
-            state.pendingDirection?.let { pendingDirection ->
-                Spacer(modifier = Modifier.size(4.dp))
-                Text(
-                    text = "Turn accepted: ${pendingDirection.name.lowercase()}",
-                    modifier = Modifier.semantics {
-                        contentDescription = "Accepted turn: ${pendingDirection.name.lowercase()}"
-                    },
-                )
-            }
-            if (capabilities.touch) {
-                Spacer(modifier = Modifier.size(12.dp))
-                DirectionControls(
-                    selectedDirection = state.pendingDirection,
-                    onDirection = onDirection,
-                )
-            }
-            if (capabilities.keyboard) {
+
+            if (state.status == com.example.snake.game.model.SessionStatus.READY) {
+                Text("Ready to play")
                 Spacer(modifier = Modifier.size(8.dp))
-                Text("Use Arrow keys or W/A/S/D")
+                Button(onClick = onStart) {
+                    Text("Start New Game")
+                }
+                Spacer(modifier = Modifier.size(8.dp))
+                Text(controlHint(capabilities))
+            } else {
+                Text("Direction: ${state.currentDirection.name.lowercase()}")
+                Spacer(modifier = Modifier.size(4.dp))
+                val pendingDirection = state.pendingDirection
+                Text(
+                    // Keep a one-line feedback slot allocated even when it is empty so a
+                    // pending turn cannot move the board when the state changes.
+                    text = pendingDirection?.let {
+                        "Turn accepted: ${it.name.lowercase()}"
+                    } ?: "\u00A0",
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = pendingDirection?.let {
+                        Modifier.semantics {
+                            contentDescription = "Accepted turn: ${it.name.lowercase()}"
+                        }
+                    } ?: Modifier,
+                )
+                if (capabilities.touch) {
+                    Spacer(modifier = Modifier.size(12.dp))
+                    DirectionControls(
+                        selectedDirection = state.pendingDirection,
+                        onDirection = onDirection,
+                    )
+                }
+                if (capabilities.keyboard) {
+                    Spacer(modifier = Modifier.size(8.dp))
+                    Text("Use Arrow keys or W/A/S/D")
+                }
             }
+            Spacer(modifier = Modifier.size(12.dp))
+            SnakeBoard(state, Modifier.size(boardSize))
         }
     }
 }
 
 @Composable
-private fun SnakeBoard(state: GameState) {
+private fun SnakeBoard(state: GameState, modifier: Modifier = Modifier) {
     Canvas(
-        modifier = Modifier
-            .fillMaxWidth()
-            .aspectRatio(1f)
+        modifier = modifier
             .padding(8.dp)
             .semantics {
                 contentDescription =
@@ -212,7 +233,7 @@ private fun DirectionButton(
             ButtonDefaults.buttonColors()
         },
     ) {
-        Text(direction.symbol())
+        Text(direction.label())
     }
 }
 
@@ -251,9 +272,9 @@ private fun Key.toGameKey(): GameKey? = when (this) {
     else -> null
 }
 
-private fun Direction.symbol(): String = when (this) {
-    Direction.UP -> "↑"
-    Direction.DOWN -> "↓"
-    Direction.LEFT -> "←"
-    Direction.RIGHT -> "→"
+private fun Direction.label(): String = when (this) {
+    Direction.UP -> "Up"
+    Direction.DOWN -> "Down"
+    Direction.LEFT -> "Left"
+    Direction.RIGHT -> "Right"
 }

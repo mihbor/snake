@@ -140,6 +140,7 @@ StepTransition --> StepOutcome : reports
    - Build one shared `GameScreen` in `commonMain` that renders `READY` and `ACTIVE` states, the bounded grid, the snake, score `0`, and the appropriate controls.
    - Keep desktop key event translation and target capability detection at the presentation/input boundary; both adapters call the same controller method with a `Direction`.
    - Render the board from grid coordinates rather than pixels. Compute a square board size from available constraints and preserve cell aspect ratio so resizing cannot change gameplay coordinates.
+   - Use `BoxWithConstraints` to calculate a bounded board size before entering the scrollable content; keep the start action, feedback, and controls reachable in the viewport and reserve a stable one-line slot for transient accepted-turn feedback.
 
 4. **Responsive and accessible controls**:
    - Show keyboard hints on desktop, a four-way visible D-pad on touch-capable targets, and both surfaces on hybrid targets when both capabilities are available.
@@ -161,11 +162,12 @@ StepTransition --> StepOutcome : reports
 4. `composeApp/src/commonMain/.../game/ui`: shared `GameScreen`, board renderer, score display, start action, and touch D-pad.
 5. `composeApp/src/desktopMain/...`: desktop application entry point and key-event adapter.
 6. `composeApp/src/androidMain/...`: Android application entry point and touch-capability integration.
-7. `composeApp/src/commonTest/...`: domain, controller, input mapping, and state-transition tests.
+7. `composeApp/src/wasmJsMain/...`: browser application entry point and browser capability integration.
+8. `composeApp/src/commonTest/...`: domain, controller, input mapping, and state-transition tests.
 
 ### Dependencies
 
-1. `KeyboardDirectionMapper` and `TouchDirectionControl` translate platform events into `Direction`.
+1. `GameScreen` translates recognized Compose key events through `KeyboardDirectionMapper` and renders its `DirectionControls`/`DirectionButton` touch surface; both input paths send the resulting `Direction` to `GameController`.
 2. `GameScreen` observes `GameController` state and sends start and direction actions to it.
 3. `GameController` invokes the pure rules for `startNewGame`, `requestDirection`, and `advance`.
 4. `MovementClock` invokes `GameController.advance` at the configured interval and is cancelled with the screen/application lifecycle.
@@ -190,9 +192,9 @@ StepTransition --> StepOutcome : reports
 1. **Responsibility**: Establish a buildable greenfield project for the required shared game experience.
 2. **Files and configuration**:
    - Create the Gradle settings, root build configuration, version catalog, Gradle wrapper, and `composeApp` module.
-   - Configure Kotlin Multiplatform with `commonMain`, `commonTest`, `desktopMain`, `androidMain`, and corresponding test/build source sets.
+   - Configure Kotlin Multiplatform with `commonMain`, `commonTest`, `desktopMain`, `androidMain`, `wasmJsMain`, and corresponding test/build source sets.
    - Configure Compose Multiplatform dependencies only where UI is needed; keep the domain module free of UI dependencies.
-   - Provide thin desktop and Android launchers that render the shared `GameScreen`.
+   - Provide thin desktop, Android, and browser launchers that render the shared `GameScreen`.
    - Update `.devcontainer/Dockerfile` and `.devcontainer/devcontainer.json` so the documented container has the JDK/Gradle toolchain required by the project and no longer runs a failing `npm ci` for a missing `package.json`.
 3. **Constraints**:
    - Use a single shared rules implementation for every target.
@@ -273,10 +275,10 @@ StepTransition --> StepOutcome : reports
 1. **Responsibility**: Translate target events into canonical directions without reproducing game rules.
 2. **Keyboard contract**: `KeyboardDirectionMapper.toDirection(key: GameKey): Direction?` maps arrows and `W/A/S/D` as specified, accepts upper- and lowercase letter representations, and returns `null` for unknown keys.
 3. **Desktop integration**:
-   - Make the active game surface focusable and request focus after `startNewGame`.
+   - In shared `GameScreen`, make the active game surface focusable and request focus after `startNewGame`; translate recognized Compose `Key` values to `GameKey` values before calling `KeyboardDirectionMapper`.
    - Send recognized mappings to `GameController.requestDirection`; consume recognized events only while active; do not allow arrow-key scrolling to replace game input.
 4. **Touch integration**:
-   - Render `Up`, `Down`, `Left`, and `Right` buttons with stable semantics labels and click handlers that send the corresponding direction.
+   - Render `DirectionControls` using `DirectionButton` components labeled `Up`, `Down`, `Left`, and `Right`, with stable semantics labels and click handlers that send the corresponding direction.
    - Reflect `ACCEPTED` by highlighting the pending direction until the next movement step; leave the highlight unchanged for rejected requests.
    - Disable or make controls inert in `READY` and preserve a clear start action instead.
 5. **Completion criteria**: Mapping tests cover every required key, unknown keys, case variants, and inactive input; Compose interaction tests verify each D-pad direction and accepted-feedback semantics.
@@ -288,7 +290,9 @@ StepTransition --> StepOutcome : reports
    - Show a labeled `Score: 0` value in both `READY` and `ACTIVE` states.
    - In `READY`, show a bounded preview or board area and a prominent `Start New Game` action; after starting, show the active board and controls.
    - Render exactly `columns * rows` logical cells, with the three snake segments visually distinct from the board and each other as needed to show head orientation.
-   - Calculate a square board size from the smaller available dimension, preserve a `1:1` cell aspect ratio, center the board, and keep controls outside the board's clipped region.
+   - Wrap the screen in `BoxWithConstraints` and calculate `boardSize` from finite `maxHeight` (falling back to `maxWidth`) and `maxWidth - 32.dp`; use a status/capability-aware height fraction (`0.44` in `READY`, `0.34` for touch, `0.58` for keyboard-only) so the square board and surrounding controls remain usable.
+   - Place the state/action/control content in a vertically scrollable, `16.dp`-padded column and render `SnakeBoard` with the calculated square size after that content; preserve a `1:1` cell aspect ratio and keep controls outside the board's clipped region.
+   - Always reserve one line for accepted-turn feedback. Render `Turn accepted: <direction>` when a pending direction exists and a non-breaking-space placeholder otherwise, with ellipsis for overflow, so feedback never moves the board when it appears or disappears.
    - Show keyboard instructions on desktop, visible D-pad controls on touch targets, and both when the target reports hybrid capability.
 3. **Accessibility**:
    - Provide content descriptions for the board, snake direction, score, start action, and all directional controls.
@@ -311,8 +315,8 @@ StepTransition --> StepOutcome : reports
    - Verify keyboard and touch adapters produce identical direction intents and equivalent state transitions.
    - Verify the screen shows score `0`, the three-segment snake, the start action, and target-appropriate controls.
 4. **Build validation**:
-   - Run common tests plus desktop and Android compilation/tests when those targets are configured.
-   - Keep timer-based tests out of the suite; use fake clocks or direct logical steps.
+   - Run common tests plus desktop, Android, and Wasm/browser compilation/tests when those targets are configured.
+   - Do not use wall-clock sleeps; use manual/fake clocks, direct logical steps, or coroutine virtual time. Include a regression that verifies `CoroutineMovementClock` moves the snake one cell after the default `150 ms` interval under virtual time.
 5. **Completion criteria**: All tests pass on the shared rules and every configured target compiles with no food, collision, pause, or persistence behavior introduced.
 
 ## Norms
@@ -325,8 +329,8 @@ StepTransition --> StepOutcome : reports
    - Fail fast only for programmer/configuration errors such as non-positive board dimensions or an invalid initial snake.
    - Keep platform event handlers resilient to unknown keys and unavailable focus.
 5. **Data validation**: Use zero-based coordinates consistently, preserve head-first snake ordering, validate all initial cells against the board, and keep score explicitly non-negative and fixed at `0` for this story.
-6. **Timing**: Advance only on logical ticks from the injected clock; never move the snake once per rendered frame and never call `delay` directly from pure rules or tests.
-7. **UI and accessibility**: Use stable semantics/test identifiers, meaningful labels, minimum touch sizes, visible focus and pending-turn feedback, and layout constraints that preserve a square board.
+6. **Timing**: Advance only on logical ticks from the injected clock; never move the snake once per rendered frame and never call `delay` directly from pure rules or tests. Tests may use coroutine virtual time to exercise the production clock without wall-clock sleeps.
+7. **UI and accessibility**: Use stable semantics/test identifiers, meaningful browser-safe labels, minimum touch sizes, visible focus and pending-turn feedback, a reserved status line for transient feedback, and layout constraints that preserve a square board.
 8. **Logging**: Do not log every movement step or player key. If lifecycle diagnostics are needed, log only start/close or unexpected configuration failures without sensitive data.
 9. **Documentation and tests**: Document non-obvious boundary and pending-input decisions near the public contracts. Name tests after business behavior and keep acceptance coverage in `commonTest` so targets share the same assertions.
 
@@ -344,7 +348,7 @@ StepTransition --> StepOutcome : reports
 3. **Security constraints**: The story is offline and single-player; do not add accounts, analytics, network calls, remote configuration, or storage of player identity.
 4. **Integration constraints**:
    - `commonMain` owns all direction, movement, board, and session rules.
-   - Desktop and Android may differ only in launch/lifecycle/event plumbing and capability presentation.
+   - Desktop, Android, and browser may differ only in launch/lifecycle/event plumbing and capability presentation.
    - Do not make Gradle, Compose, Android, or desktop classes visible from the pure domain contracts.
 5. **Business rule constraints**:
    - Immediate reversal is invalid relative to the current direction.
@@ -367,4 +371,5 @@ StepTransition --> StepOutcome : reports
    - Before start, direction controls are inert and the player can identify how to start.
    - During play, the board, score, snake orientation, and target-appropriate controls are simultaneously discoverable.
    - Accepted touch input has visible selected feedback; rejected input must not present itself as accepted.
+   - The accepted-turn feedback line must not shift the board or controls when it appears or disappears; directional controls use the literal labels `Up`, `Down`, `Left`, and `Right` for browser-compatible rendering.
    - No game-over, pause, best-score, restart-after-collision, food, or growth controls may appear in this increment.

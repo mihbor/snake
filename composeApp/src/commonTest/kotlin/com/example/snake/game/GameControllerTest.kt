@@ -1,6 +1,7 @@
 package com.example.snake.game
 
 import com.example.snake.game.controller.GameController
+import com.example.snake.game.controller.CoroutineMovementClock
 import com.example.snake.game.controller.MovementClock
 import com.example.snake.game.model.Cell
 import com.example.snake.game.model.Direction
@@ -15,6 +16,7 @@ import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.emitAll
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
@@ -57,6 +59,28 @@ class GameControllerTest {
 
             assertEquals(Cell(10, 9), controller.state.value.snake.head())
             assertEquals(Direction.UP, controller.state.value.currentDirection)
+        } finally {
+            controller.close()
+        }
+    }
+
+    @Test
+    fun productionClockMovesTheSnakeAfterOneMovementInterval() = runTest {
+        val dispatcher = StandardTestDispatcher(testScheduler)
+        val scope = CoroutineScope(dispatcher + SupervisorJob())
+        val controller = GameController(
+            scope = scope,
+            movementClock = CoroutineMovementClock(),
+        )
+
+        try {
+            controller.startNewGame()
+            runCurrent()
+
+            advanceTimeBy(GameController.DEFAULT_MOVEMENT_INTERVAL_MILLIS)
+            runCurrent()
+
+            assertEquals(Cell(11, 10), controller.state.value.snake.head())
         } finally {
             controller.close()
         }
