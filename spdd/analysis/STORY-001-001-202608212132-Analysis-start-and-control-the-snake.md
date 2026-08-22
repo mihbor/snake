@@ -169,9 +169,3 @@ Players need an immediate way to begin a session and understand how to guide the
 | AC5 | Ignore an immediate left reversal while moving right, continue right, and do not end the session from that request alone. | Yes | The invariant is explicit; the input buffering rule and any feedback for a rejected request should be made consistent across targets. |
 
 All five acceptance criteria are covered by the proposed strategic direction; AC1 is only partially specified and requires product clarification before detailed design. The table assesses addressability, not implementation status: the current repository has no application implementation.
-
-#### Deferred Scope
-
-| Item | Rationale | User Consented? |
-|------|-----------|-----------------|
-| None | No in-scope requirement is being deferred. Food collection, score increases, collision outcomes, game over, pause/resume, and best-score retention are explicitly out of scope for this story and assigned to later epic stories. | Not applicable |

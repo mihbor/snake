@@ -200,9 +200,11 @@ Input can be provided in two ways:
 
    **IMPORTANT**: This step only applies to items that are **in scope** of the story being analyzed. Items that were explicitly "Out of scope" from the start, covered in another story, rejected alternatives, or pure design decisions must NOT be added to `deferred.md`.
 
-   Output this section as:
+   Include the `#### Deferred Scope` subsection and its table **only if** at least one in-scope requirement was explicitly deferred with user consent. If there are no such deferred items, omit both the subsection and the table entirely; do not create an empty table or add a `None` row.
 
-    ```
+   Output the always-required parts of this section as:
+
+    ```markdown
     ### Risk & Gap Analysis
 
     #### Requirement Ambiguities
@@ -218,7 +220,11 @@ Input can be provided in two ways:
     | AC# | Description | Addressable? | Gaps/Notes |
     |-----|-------------|--------------|------------|
     | [n] | [AC text]   | Yes/Partial  | [any gaps]  |
+    ```
 
+   If at least one in-scope requirement was explicitly deferred with user consent, append this subsection:
+
+    ```markdown
     #### Deferred Scope
     | Item | Rationale | User Consented? |
     |------|-----------|-----------------|
@@ -322,6 +328,7 @@ An enriched context document saved to `spdd/analysis/<file-name>.md` that transf
 - Acceptance Criteria coverage MUST assess every AC from the requirement
 - Risk & Gap Analysis MUST surface any ambiguities — do NOT silently assume
 - Deferred scope MUST be explicitly approved by the user via AskUserQuestion before being accepted
+- Include the `Deferred Scope` subsection and table only when at least one in-scope requirement was explicitly deferred with user consent; otherwise omit both and never emit an empty table or a `None` row
 - Any in-scope requirement deferred with user consent MUST be recorded in `spdd/analysis/deferred.md` (creating the file if needed)
 - Items that are out of scope, covered in another story, rejected alternatives, or pure design decisions MUST NOT be added to `deferred.md`
 - Resolved/deferred items that have been addressed MUST be removed from `deferred.md` — never updated in place with a "resolved" status
