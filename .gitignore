@@ -1,2 +1,6 @@
 /spdd.iml
 /.idea/
+.gradle/
+**/build/
+*.iml
+local.properties

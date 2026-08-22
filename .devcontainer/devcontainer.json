@@ -1,17 +1,16 @@
 {
-	"name": "PlanetCiv Dev Container",
+	"name": "Snake Dev Container",
 	"build": {
 		"dockerfile": "Dockerfile"
 	},
-	"postCreateCommand": "npm ci",
+	"postCreateCommand": "./gradlew test",
 	"customizations": {
 		"vscode": {
 			"extensions": [
-				"dbaeumer.vscode-eslint",
-				"esbenp.prettier-vscode",
-				"ms-vscode.vscode-typescript-next"
+				"fwcd.kotlin",
+				"vscjava.vscode-gradle"
 			]
 		}
 	},
-	"remoteUser": "node"
+	"remoteUser": "vscode"
 }

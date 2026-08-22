@@ -1,0 +1,88 @@
+package com.example.snake.game.rules
+
+import com.example.snake.game.model.Board
+import com.example.snake.game.model.Cell
+import com.example.snake.game.model.Direction
+import com.example.snake.game.model.GameState
+import com.example.snake.game.model.SessionStatus
+import com.example.snake.game.model.Snake
+
+object GameRules {
+    /**
+     * Creates a fresh active game with the head at the integer center of the board and the body
+     * extending left. The default board therefore starts at (10, 10), (9, 10), and (8, 10).
+     */
+    fun startNewGame(board: Board = Board(20, 20)): GameState {
+        val head = Cell(column = board.columns / 2, row = board.rows / 2)
+        val initialSegments = listOf(
+            head,
+            Cell(column = head.column - 1, row = head.row),
+            Cell(column = head.column - 2, row = head.row),
+        )
+        require(initialSegments.all(board::contains)) {
+            "Board is too small for the centered three-segment snake"
+        }
+
+        return GameState(
+            status = SessionStatus.ACTIVE,
+            board = board,
+            snake = Snake(initialSegments),
+            currentDirection = Direction.RIGHT,
+            pendingDirection = null,
+            score = 0,
+        )
+    }
+
+    /**
+     * Retains the first accepted turn until the next successful step. Repeating that turn is
+     * idempotent, while a different request cannot replace it before it is applied.
+     */
+    fun requestDirection(state: GameState, requested: Direction): DirectionRequest {
+        if (state.status != SessionStatus.ACTIVE) {
+            return DirectionRequest(state, DirectionRequestResult.IGNORED_INACTIVE)
+        }
+
+        if (requested == state.currentDirection.opposite()) {
+            return DirectionRequest(state, DirectionRequestResult.IGNORED_REVERSAL)
+        }
+
+        val pendingDirection = state.pendingDirection
+        if (pendingDirection != null) {
+            if (pendingDirection == requested) {
+                return DirectionRequest(state, DirectionRequestResult.ACCEPTED)
+            }
+            return DirectionRequest(state, DirectionRequestResult.IGNORED_PENDING_TURN)
+        }
+
+        return DirectionRequest(
+            state = state.copy(pendingDirection = requested),
+            result = DirectionRequestResult.ACCEPTED,
+        )
+    }
+
+    fun advance(state: GameState): StepTransition {
+        if (state.status != SessionStatus.ACTIVE) {
+            return StepTransition(state, StepOutcome.NOT_ACTIVE)
+        }
+
+        val effectiveDirection = state.pendingDirection ?: state.currentDirection
+        val offset = effectiveDirection.offset()
+        val nextHead = Cell(
+            column = state.snake.head().column + offset.column,
+            row = state.snake.head().row + offset.row,
+        )
+        if (!state.board.contains(nextHead)) {
+            // A blocked step is a no-op, so a pending turn remains available for a later rule.
+            return StepTransition(state, StepOutcome.BOUNDARY_BLOCKED)
+        }
+
+        return StepTransition(
+            state = state.copy(
+                snake = state.snake.moveTo(nextHead),
+                currentDirection = effectiveDirection,
+                pendingDirection = null,
+            ),
+            outcome = StepOutcome.MOVED,
+        )
+    }
+}
