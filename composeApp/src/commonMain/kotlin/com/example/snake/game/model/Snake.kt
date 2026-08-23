@@ -11,4 +11,7 @@ data class Snake(
 
     fun moveTo(nextHead: Cell): Snake =
         Snake(listOf(nextHead) + segments.dropLast(1))
+
+    fun moveToAndGrow(nextHead: Cell): Snake =
+        Snake(listOf(nextHead) + segments)
 }

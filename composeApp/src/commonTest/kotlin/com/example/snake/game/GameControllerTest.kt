@@ -21,6 +21,7 @@ import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertTrue
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class GameControllerTest {
@@ -81,6 +82,49 @@ class GameControllerTest {
             runCurrent()
 
             assertEquals(Cell(11, 10), controller.state.value.snake.head())
+        } finally {
+            controller.close()
+        }
+    }
+
+    @Test
+    fun controllerPublishesCollectionStateAsOneClockTransition() = runTest {
+        val dispatcher = StandardTestDispatcher(testScheduler)
+        val scope = CoroutineScope(dispatcher + SupervisorJob())
+        val clock = ManualMovementClock()
+        val controller = GameController(scope = scope, movementClock = clock)
+
+        try {
+            controller.startNewGame()
+            runCurrent()
+
+            repeat(9) {
+                clock.tick()
+                runCurrent()
+            }
+            assertEquals(Cell(19, 10), controller.state.value.snake.head())
+
+            assertEquals(DirectionRequestResult.ACCEPTED, controller.requestDirection(Direction.UP))
+            clock.tick()
+            runCurrent()
+            repeat(9) {
+                clock.tick()
+                runCurrent()
+            }
+            assertEquals(Cell(19, 0), controller.state.value.snake.head())
+
+            assertEquals(DirectionRequestResult.ACCEPTED, controller.requestDirection(Direction.LEFT))
+            repeat(19) {
+                clock.tick()
+                runCurrent()
+            }
+
+            val collected = controller.state.value
+            assertEquals(Cell(0, 0), collected.snake.head())
+            assertEquals(4, collected.snake.segments.size)
+            assertEquals(10, collected.score)
+            assertTrue(collected.food !in collected.snake.segments)
+            assertTrue(collected.board.contains(collected.food))
         } finally {
             controller.close()
         }

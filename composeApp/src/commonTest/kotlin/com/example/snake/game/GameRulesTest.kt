@@ -68,8 +68,11 @@ class GameRulesTest {
         assertEquals(Direction.RIGHT, state.currentDirection)
         assertEquals(null, state.pendingDirection)
         assertEquals(0, state.score)
+        assertEquals(Cell(0, 0), state.food)
         assertTrue(state.snake.segments.distinct().size == 3)
         assertTrue(state.snake.segments.all(state.board::contains))
+        assertTrue(state.food !in state.snake.segments)
+        assertTrue(state.board.contains(state.food))
         assertEquals(state, GameRules.startNewGame())
     }
 
@@ -104,6 +107,110 @@ class GameRulesTest {
         assertEquals(Direction.RIGHT, transition.state.currentDirection)
         assertEquals(null, transition.state.pendingDirection)
         assertEquals(0, transition.state.score)
+        assertEquals(initial.food, transition.state.food)
+    }
+
+    @Test
+    fun gameStateRejectsFoodOutsideTheBoardOrOnTheSnake() {
+        val board = Board()
+        val snake = Snake(listOf(Cell(10, 10), Cell(9, 10), Cell(8, 10)))
+
+        assertFailsWith<IllegalArgumentException> {
+            GameState(
+                status = SessionStatus.ACTIVE,
+                board = board,
+                snake = snake,
+                currentDirection = Direction.RIGHT,
+                pendingDirection = null,
+                score = 0,
+                food = Cell(-1, 0),
+            )
+        }
+        assertFailsWith<IllegalArgumentException> {
+            GameState(
+                status = SessionStatus.ACTIVE,
+                board = board,
+                snake = snake,
+                currentDirection = Direction.RIGHT,
+                pendingDirection = null,
+                score = 0,
+                food = snake.head(),
+            )
+        }
+    }
+
+    @Test
+    fun collectingFoodGrowsSnakeAwardsTenPointsAndReplacesFood() {
+        val initial = GameRules.startNewGame().copy(food = Cell(11, 10))
+
+        val transition = GameRules.advance(initial)
+
+        assertEquals(StepOutcome.FOOD_COLLECTED, transition.outcome)
+        assertEquals(
+            listOf(
+                Cell(11, 10),
+                Cell(10, 10),
+                Cell(9, 10),
+                Cell(8, 10),
+            ),
+            transition.state.snake.segments,
+        )
+        assertEquals(10, transition.state.score)
+        assertEquals(Direction.RIGHT, transition.state.currentDirection)
+        assertEquals(null, transition.state.pendingDirection)
+        assertEquals(Cell(0, 0), transition.state.food)
+        assertTrue(transition.state.food !in transition.state.snake.segments)
+        assertTrue(transition.state.board.contains(transition.state.food))
+    }
+
+    @Test
+    fun collectingFoodTwiceAccumulatesGrowthAndScore() {
+        val initial = GameRules.startNewGame().copy(food = Cell(11, 10))
+        val afterFirst = GameRules.advance(initial).state.copy(food = Cell(12, 10))
+
+        val transition = GameRules.advance(afterFirst)
+
+        assertEquals(StepOutcome.FOOD_COLLECTED, transition.outcome)
+        assertEquals(5, transition.state.snake.segments.size)
+        assertEquals(
+            listOf(
+                Cell(12, 10),
+                Cell(11, 10),
+                Cell(10, 10),
+                Cell(9, 10),
+                Cell(8, 10),
+            ),
+            transition.state.snake.segments,
+        )
+        assertEquals(20, transition.state.score)
+        assertTrue(transition.state.food !in transition.state.snake.segments)
+    }
+
+    @Test
+    fun pendingTurnCanCollectFoodOnTheFollowingStep() {
+        val initial = GameRules.startNewGame().copy(food = Cell(10, 9))
+        val requested = GameRules.requestDirection(initial, Direction.UP)
+
+        val transition = GameRules.advance(requested.state)
+
+        assertEquals(DirectionRequestResult.ACCEPTED, requested.result)
+        assertEquals(StepOutcome.FOOD_COLLECTED, transition.outcome)
+        assertEquals(Direction.UP, transition.state.currentDirection)
+        assertEquals(null, transition.state.pendingDirection)
+        assertEquals(10, transition.state.score)
+        assertEquals(Cell(10, 9), transition.state.snake.head())
+        assertEquals(4, transition.state.snake.segments.size)
+    }
+
+    @Test
+    fun collectionIsBlockedWhenGrowthLeavesNoReplacementCell() {
+        val initial = GameRules.startNewGame(Board(columns = 4, rows = 1))
+
+        val transition = GameRules.advance(initial)
+
+        assertEquals(StepOutcome.FOOD_COLLECTION_BLOCKED, transition.outcome)
+        assertEquals(initial, transition.state)
+        assertEquals(SessionStatus.ACTIVE, transition.state.status)
     }
 
     @Test
@@ -188,6 +295,7 @@ class GameRulesTest {
             currentDirection = Direction.RIGHT,
             pendingDirection = null,
             score = 0,
+            food = Cell(0, 0),
         )
 
         val request = GameRules.requestDirection(ready, Direction.UP)
@@ -201,7 +309,7 @@ class GameRulesTest {
 
     @Test
     fun boundaryAttemptDoesNotWrapOrDiscardPendingDirection() {
-        val initial = GameRules.startNewGame(Board(columns = 4, rows = 1))
+        val initial = GameRules.startNewGame(Board(columns = 5, rows = 1)).copy(food = Cell(4, 0))
         val atRightEdge = GameRules.advance(initial).state
         val pendingAtEdge = GameRules.requestDirection(atRightEdge, Direction.UP).state
 

@@ -156,7 +156,7 @@ private fun SnakeBoard(state: GameState, modifier: Modifier = Modifier) {
             .semantics {
                 contentDescription =
                     "Bounded ${state.board.columns} by ${state.board.rows} snake board with " +
-                        "${state.snake.segments.size} segments"
+                        "${state.snake.segments.size} segments and one food item"
             },
     ) {
         val cellWidth = size.width / state.board.columns
@@ -173,6 +173,15 @@ private fun SnakeBoard(state: GameState, modifier: Modifier = Modifier) {
             val y = row * cellHeight
             drawLine(gridColor, Offset(0f, y), Offset(size.width, y), strokeWidth = 1f)
         }
+
+        drawCircle(
+            color = Color(0xFFD32F2F),
+            center = Offset(
+                x = (state.food.column + 0.5f) * cellWidth,
+                y = (state.food.row + 0.5f) * cellHeight,
+            ),
+            radius = minOf(cellWidth, cellHeight) * 0.32f,
+        )
 
         state.snake.segments.forEachIndexed { index, cell ->
             val inset = 1.5f

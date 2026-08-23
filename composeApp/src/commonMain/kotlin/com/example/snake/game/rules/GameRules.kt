@@ -22,14 +22,18 @@ object GameRules {
         require(initialSegments.all(board::contains)) {
             "Board is too small for the centered three-segment snake"
         }
+        val initialSnake = Snake(initialSegments)
+        val food = firstUnoccupiedCell(board, initialSnake)
+            ?: throw IllegalArgumentException("Board has no free cell for food")
 
         return GameState(
             status = SessionStatus.ACTIVE,
             board = board,
-            snake = Snake(initialSegments),
+            snake = initialSnake,
             currentDirection = Direction.RIGHT,
             pendingDirection = null,
             score = 0,
+            food = food,
         )
     }
 
@@ -76,6 +80,23 @@ object GameRules {
             return StepTransition(state, StepOutcome.BOUNDARY_BLOCKED)
         }
 
+        if (nextHead == state.food) {
+            val grownSnake = state.snake.moveToAndGrow(nextHead)
+            val replacementFood = firstUnoccupiedCell(state.board, grownSnake)
+                ?: return StepTransition(state, StepOutcome.FOOD_COLLECTION_BLOCKED)
+
+            return StepTransition(
+                state = state.copy(
+                    snake = grownSnake,
+                    currentDirection = effectiveDirection,
+                    pendingDirection = null,
+                    score = state.score + 10,
+                    food = replacementFood,
+                ),
+                outcome = StepOutcome.FOOD_COLLECTED,
+            )
+        }
+
         return StepTransition(
             state = state.copy(
                 snake = state.snake.moveTo(nextHead),
@@ -84,5 +105,15 @@ object GameRules {
             ),
             outcome = StepOutcome.MOVED,
         )
+    }
+
+    private fun firstUnoccupiedCell(board: Board, snake: Snake): Cell? {
+        for (row in 0 until board.rows) {
+            for (column in 0 until board.columns) {
+                val candidate = Cell(column = column, row = row)
+                if (candidate !in snake.segments) return candidate
+            }
+        }
+        return null
     }
 }
