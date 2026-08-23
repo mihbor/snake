@@ -19,6 +19,7 @@ fun SnakeApp(
 ) {
     val controller = remember { GameController(bestScoreStore = bestScoreStore) }
     val state by controller.state.collectAsState()
+    val selectedMode by controller.selectedMode.collectAsState()
 
     DisposableEffect(controller) {
         onDispose { controller.close() }
@@ -32,6 +33,8 @@ fun SnakeApp(
                 capabilities = capabilities,
                 onStart = controller::startNewGame,
                 onDirection = controller::requestDirection,
+                selectedMode = selectedMode,
+                onModeSelected = controller::selectMode,
                 onPause = controller::pause,
                 onResume = controller::resume,
                 modifier = Modifier,

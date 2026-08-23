@@ -2,6 +2,7 @@ package com.example.snake.game.controller
 
 import com.example.snake.game.model.GameState
 import com.example.snake.game.model.Direction
+import com.example.snake.game.model.PlayMode
 import com.example.snake.game.model.SessionStatus
 import com.example.snake.game.persistence.BestScoreStore
 import com.example.snake.game.persistence.normalizeBestScore
@@ -33,22 +34,38 @@ class GameController(
     }
 
     private var bestScoreValue = readBestScore()
-    private val _state = MutableStateFlow(readyState())
+    private val _selectedMode = MutableStateFlow(PlayMode.TWO_D)
+    private val _state = MutableStateFlow(readyState(_selectedMode.value))
     private var movementJob: Job? = null
     private var sessionGeneration = 0L
     private var closed = false
 
     val state: StateFlow<GameState> = _state.asStateFlow()
+    val selectedMode: StateFlow<PlayMode> = _selectedMode.asStateFlow()
     val bestScore: Int
         get() = bestScoreValue
+
+    fun selectMode(mode: PlayMode) {
+        val currentState = _state.value
+        if (closed ||
+            (currentState.status != SessionStatus.READY && currentState.status != SessionStatus.GAME_OVER) ||
+            _selectedMode.value == mode
+        ) return
+
+        _selectedMode.value = mode
+        if (currentState.status == SessionStatus.READY) {
+            _state.value = readyState(mode)
+        }
+    }
 
     fun startNewGame() {
         if (closed) return
 
+        val mode = _selectedMode.value
         sessionGeneration += 1
         movementJob?.cancel()
         movementJob = null
-        _state.value = GameRules.startNewGame(random = random)
+        _state.value = GameRules.startNewGame(random = random, mode = mode)
         startClock()
     }
 
@@ -115,7 +132,11 @@ class GameController(
     }
 
     fun startClock() {
-        if (closed || _state.value.status != SessionStatus.ACTIVE || movementJob?.isActive == true) return
+        if (closed ||
+            _state.value.status != SessionStatus.ACTIVE ||
+            _state.value.mode == PlayMode.THREE_D ||
+            movementJob?.isActive == true
+        ) return
 
         val generation = sessionGeneration
         movementJob = scope.launch {
@@ -142,8 +163,8 @@ class GameController(
         movementJob = null
     }
 
-    private fun readyState(): GameState =
-        GameRules.startNewGame(random = random).copy(status = SessionStatus.READY)
+    private fun readyState(mode: PlayMode): GameState =
+        GameRules.startNewGame(random = random, mode = mode).copy(status = SessionStatus.READY)
 
     private fun readBestScore(): Int = runCatching {
         normalizeBestScore(bestScoreStore.readBestScore())

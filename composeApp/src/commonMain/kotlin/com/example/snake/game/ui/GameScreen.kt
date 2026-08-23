@@ -46,6 +46,7 @@ import com.example.snake.game.input.KeyboardDirectionMapper
 import com.example.snake.game.model.CollisionCause
 import com.example.snake.game.model.Direction
 import com.example.snake.game.model.GameState
+import com.example.snake.game.model.PlayMode
 import com.example.snake.game.model.SessionStatus
 
 @Composable
@@ -55,6 +56,8 @@ fun GameScreen(
     capabilities: InputCapabilities,
     onStart: () -> Unit,
     onDirection: (Direction) -> Unit,
+    selectedMode: PlayMode = state.mode,
+    onModeSelected: (PlayMode) -> Unit = {},
     modifier: Modifier = Modifier,
     onPause: () -> Unit = {},
     onResume: () -> Unit = {},
@@ -103,6 +106,37 @@ fun GameScreen(
         ) {
             Text("Snake", style = MaterialTheme.typography.headlineMedium)
             Spacer(modifier = Modifier.size(8.dp))
+            if (modeSelectionAvailable(state.status)) {
+                Text(
+                    text = selectedModeLabel(selectedMode),
+                    modifier = Modifier.semantics {
+                        contentDescription = selectedModeLabel(selectedMode)
+                    },
+                )
+                Spacer(modifier = Modifier.size(8.dp))
+                PlayModeSelector(
+                    selectedMode = selectedMode,
+                    onModeSelected = onModeSelected,
+                )
+                Spacer(modifier = Modifier.size(8.dp))
+                if (state.status == SessionStatus.GAME_OVER) {
+                    Text(
+                        text = modeLabel(state.mode),
+                        modifier = Modifier.semantics {
+                            contentDescription = modeLabel(state.mode)
+                        },
+                    )
+                    Spacer(modifier = Modifier.size(8.dp))
+                }
+            } else {
+                Text(
+                    text = modeLabel(state.mode),
+                    modifier = Modifier.semantics {
+                        contentDescription = modeLabel(state.mode)
+                    },
+                )
+                Spacer(modifier = Modifier.size(8.dp))
+            }
             Text(
                 text = currentScoreLabel(state),
                 style = MaterialTheme.typography.titleMedium,
@@ -127,27 +161,31 @@ fun GameScreen(
                         Text("Start New Game")
                     }
                     Spacer(modifier = Modifier.size(8.dp))
-                    Text(controlHint(capabilities))
+                    Text(controlHint(capabilities, selectedMode))
                 }
 
                 SessionStatus.ACTIVE -> {
-                    Text("Direction: ${state.currentDirection.name.lowercase()}")
-                    Spacer(modifier = Modifier.size(4.dp))
-                    val pendingDirection = state.pendingDirection
-                    Text(
-                        // Keep a one-line feedback slot allocated even when it is empty so a
-                        // pending turn cannot move the board when the state changes.
-                        text = pendingDirection?.let {
-                            "Turn accepted: ${it.name.lowercase()}"
-                        } ?: "\u00A0",
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = pendingDirection?.let {
-                            Modifier.semantics {
-                                contentDescription = "Accepted turn: ${it.name.lowercase()}"
-                            }
-                        } ?: Modifier,
-                    )
+                    if (state.mode == PlayMode.THREE_D) {
+                        Text("3D session ready")
+                    } else {
+                        Text("Direction: ${state.currentDirection.name.lowercase()}")
+                        Spacer(modifier = Modifier.size(4.dp))
+                        val pendingDirection = state.pendingDirection
+                        Text(
+                            // Keep a one-line feedback slot allocated even when it is empty so a
+                            // pending turn cannot move the board when the state changes.
+                            text = pendingDirection?.let {
+                                "Turn accepted: ${it.name.lowercase()}"
+                            } ?: "\u00A0",
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = pendingDirection?.let {
+                                Modifier.semantics {
+                                    contentDescription = "Accepted turn: ${it.name.lowercase()}"
+                                }
+                            } ?: Modifier,
+                        )
+                    }
                     Spacer(modifier = Modifier.size(12.dp))
                     Button(
                         onClick = onPause,
@@ -158,14 +196,17 @@ fun GameScreen(
                     ) {
                         Text("Pause")
                     }
-                    if (capabilities.touch) {
+                    if (state.mode == PlayMode.THREE_D) {
+                        Spacer(modifier = Modifier.size(12.dp))
+                        ThreeDControls()
+                    } else if (capabilities.touch) {
                         Spacer(modifier = Modifier.size(12.dp))
                         DirectionControls(
                             selectedDirection = state.pendingDirection,
                             onDirection = onDirection,
                         )
                     }
-                    if (capabilities.keyboard) {
+                    if (capabilities.keyboard && state.mode == PlayMode.TWO_D) {
                         Spacer(modifier = Modifier.size(8.dp))
                         Text("Use Arrow keys or W/A/S/D to steer. Press P or Space to pause.")
                     }
@@ -221,7 +262,18 @@ fun GameScreen(
                 }
             }
             Spacer(modifier = Modifier.size(12.dp))
-            SnakeBoard(state, Modifier.size(boardSize))
+            if (state.mode == PlayMode.THREE_D) {
+                Text(
+                    text = depthLayersLabel(state.board.depth),
+                    modifier = Modifier.semantics {
+                        contentDescription = depthLayersLabel(state.board.depth)
+                    },
+                )
+                Spacer(modifier = Modifier.size(4.dp))
+                ThreeDSnakeBoard(state, Modifier.size(boardSize))
+            } else {
+                SnakeBoard(state, Modifier.size(boardSize))
+            }
         }
     }
 }
@@ -233,6 +285,16 @@ internal fun currentScoreLabel(state: GameState): String = when (state.status) {
 }
 
 internal fun bestScoreLabel(bestScore: Int): String = "Best score: $bestScore"
+
+internal fun selectedModeLabel(mode: PlayMode): String = "Selected mode: ${mode.label()}"
+
+internal fun modeLabel(mode: PlayMode): String = "Mode: ${mode.label()}"
+
+internal fun depthLayersLabel(depth: Int): String =
+    "Depth layers: ${0 until depth}"
+
+internal fun modeSelectionAvailable(status: SessionStatus): Boolean =
+    status == SessionStatus.READY || status == SessionStatus.GAME_OVER
 
 @Composable
 private fun SnakeBoard(state: GameState, modifier: Modifier = Modifier) {
@@ -288,6 +350,134 @@ private fun SnakeBoard(state: GameState, modifier: Modifier = Modifier) {
 }
 
 @Composable
+private fun ThreeDSnakeBoard(state: GameState, modifier: Modifier = Modifier) {
+    Canvas(
+        modifier = modifier
+            .padding(8.dp)
+            .semantics {
+                contentDescription =
+                    "Bounded ${state.board.columns} by ${state.board.rows} by ${state.board.depth} " +
+                        "3D snake space with ${state.snake.segments.size} segments and one food item"
+            },
+    ) {
+        val layerOffset = minOf(size.width, size.height) * 0.06f
+        val planeWidth = maxOf(1f, size.width - (layerOffset * (state.board.depth - 1)))
+        val planeHeight = maxOf(1f, size.height - (layerOffset * (state.board.depth - 1)))
+        val cellWidth = planeWidth / state.board.columns
+        val cellHeight = planeHeight / state.board.rows
+        val boardColor = Color(0xFFE8F0E8)
+        val gridColor = Color(0xFFB7C8B7)
+        val depthColors = listOf(
+            Color(0xFF8FAF8F),
+            Color(0xFF6F936F),
+            Color(0xFF4F774F),
+        )
+
+        for (depth in state.board.depth - 1 downTo 0) {
+            val layerPosition = Offset(depth * layerOffset, depth * layerOffset)
+            drawRect(
+                color = boardColor.copy(alpha = 0.72f),
+                topLeft = layerPosition,
+                size = Size(planeWidth, planeHeight),
+            )
+            for (column in 0..state.board.columns) {
+                val x = layerPosition.x + column * cellWidth
+                drawLine(
+                    color = gridColor,
+                    start = Offset(x, layerPosition.y),
+                    end = Offset(x, layerPosition.y + planeHeight),
+                    strokeWidth = 1f,
+                )
+            }
+            for (row in 0..state.board.rows) {
+                val y = layerPosition.y + row * cellHeight
+                drawLine(
+                    color = gridColor,
+                    start = Offset(layerPosition.x, y),
+                    end = Offset(layerPosition.x + planeWidth, y),
+                    strokeWidth = 1f,
+                )
+            }
+            drawRect(
+                color = depthColors[depth % depthColors.size],
+                topLeft = layerPosition,
+                size = Size(planeWidth, planeHeight),
+                style = androidx.compose.ui.graphics.drawscope.Stroke(width = 2f),
+            )
+
+            if (state.food.depth == depth) {
+                drawCircle(
+                    color = Color(0xFFD32F2F),
+                    center = Offset(
+                        x = layerPosition.x + (state.food.column + 0.5f) * cellWidth,
+                        y = layerPosition.y + (state.food.row + 0.5f) * cellHeight,
+                    ),
+                    radius = minOf(cellWidth, cellHeight) * 0.32f,
+                )
+            }
+
+            state.snake.segments.forEachIndexed { index, cell ->
+                if (cell.depth == depth) {
+                    val inset = 1.5f
+                    drawRoundRect(
+                        color = if (index == 0) Color(0xFF1B5E20) else Color(0xFF43A047),
+                        topLeft = Offset(
+                            x = layerPosition.x + cell.column * cellWidth + inset,
+                            y = layerPosition.y + cell.row * cellHeight + inset,
+                        ),
+                        size = Size(
+                            width = maxOf(1f, cellWidth - (inset * 2)),
+                            height = maxOf(1f, cellHeight - (inset * 2)),
+                        ),
+                        cornerRadius = CornerRadius(4f, 4f),
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun PlayModeSelector(
+    selectedMode: PlayMode,
+    onModeSelected: (PlayMode) -> Unit,
+) {
+    Row(
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        PlayModeButton(PlayMode.TWO_D, selectedMode, onModeSelected)
+        PlayModeButton(PlayMode.THREE_D, selectedMode, onModeSelected)
+    }
+}
+
+@Composable
+private fun PlayModeButton(
+    mode: PlayMode,
+    selectedMode: PlayMode,
+    onModeSelected: (PlayMode) -> Unit,
+) {
+    val selected = mode == selectedMode
+    Button(
+        onClick = { onModeSelected(mode) },
+        modifier = Modifier
+            .sizeIn(minWidth = 64.dp, minHeight = 48.dp)
+            .semantics {
+                contentDescription = "${mode.label()} play mode"
+                role = Role.Button
+                stateDescription = if (selected) "Selected" else "Not selected"
+            },
+        colors = if (selected) {
+            ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
+        } else {
+            ButtonDefaults.buttonColors()
+        },
+    ) {
+        Text(mode.label())
+    }
+}
+
+@Composable
 private fun DirectionControls(
     selectedDirection: Direction?,
     onDirection: (Direction) -> Unit,
@@ -332,11 +522,71 @@ private fun DirectionButton(
     }
 }
 
-private fun controlHint(capabilities: InputCapabilities): String = when {
+internal enum class ThreeDControl {
+    UP,
+    DOWN,
+    LEFT,
+    RIGHT,
+    FORWARD,
+    BACKWARD,
+}
+
+internal fun threeDControlLabel(control: ThreeDControl): String = when (control) {
+    ThreeDControl.UP -> "Up"
+    ThreeDControl.DOWN -> "Down"
+    ThreeDControl.LEFT -> "Left"
+    ThreeDControl.RIGHT -> "Right"
+    ThreeDControl.FORWARD -> "Forward"
+    ThreeDControl.BACKWARD -> "Backward"
+}
+
+@Composable
+private fun ThreeDControls() {
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Text("3D movement controls")
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            ThreeDControl.values().take(3).forEach { control ->
+                ThreeDControlButton(control)
+            }
+        }
+        Spacer(modifier = Modifier.size(8.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            ThreeDControl.values().drop(3).forEach { control ->
+                ThreeDControlButton(control)
+            }
+        }
+    }
+}
+
+@Composable
+private fun ThreeDControlButton(control: ThreeDControl) {
+    val label = threeDControlLabel(control)
+    Button(
+        onClick = {},
+        enabled = false,
+        modifier = Modifier
+            .sizeIn(minWidth = 64.dp, minHeight = 48.dp)
+            .semantics {
+                contentDescription = "3D move $label"
+                role = Role.Button
+                stateDescription = "Unavailable until 3D movement is implemented"
+            },
+    ) {
+        Text(label)
+    }
+}
+
+private fun controlHint(capabilities: InputCapabilities, mode: PlayMode): String {
+    if (mode == PlayMode.THREE_D) {
+        return "3D controls: Up, Down, Left, Right, Forward, Backward"
+    }
+
+    return when {
     capabilities.keyboard && capabilities.touch -> "Use Arrow keys, W/A/S/D, or the directional controls"
     capabilities.keyboard -> "Use Arrow keys or W/A/S/D to steer"
     capabilities.touch -> "Use the directional controls to steer"
     else -> "Choose a supported control surface to steer"
+    }
 }
 
 internal fun collisionMessage(cause: CollisionCause): String = when (cause) {
@@ -360,6 +610,10 @@ private fun handleKeyboardEvent(
     if (gameKey == GameKey.P || gameKey == GameKey.SPACE) {
         onPause()
         return true
+    }
+
+    if (state.mode == PlayMode.THREE_D) {
+        return KeyboardDirectionMapper.toDirection(gameKey) != null
     }
 
     val direction = KeyboardDirectionMapper.toDirection(gameKey) ?: return false

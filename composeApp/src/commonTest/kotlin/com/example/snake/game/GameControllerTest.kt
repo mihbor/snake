@@ -6,6 +6,7 @@ import com.example.snake.game.controller.MovementClock
 import com.example.snake.game.model.Cell
 import com.example.snake.game.model.CollisionCause
 import com.example.snake.game.model.Direction
+import com.example.snake.game.model.PlayMode
 import com.example.snake.game.model.SessionStatus
 import com.example.snake.game.rules.DirectionRequestResult
 import com.example.snake.game.rules.StepOutcome
@@ -35,6 +36,97 @@ class GameControllerTest {
             assertEquals(SessionStatus.READY, controller.state.value.status)
             assertEquals(DirectionRequestResult.IGNORED_INACTIVE, controller.requestDirection(Direction.UP))
             assertEquals(SessionStatus.READY, controller.state.value.status)
+        } finally {
+            controller.close()
+        }
+    }
+
+    @Test
+    fun controllerDefaultsToTwoDAndSelectionUpdatesTheReadyPreview() {
+        val controller = testController()
+
+        try {
+            assertEquals(PlayMode.TWO_D, controller.selectedMode.value)
+            assertEquals(PlayMode.TWO_D, controller.state.value.mode)
+            assertEquals(1, controller.state.value.board.depth)
+
+            controller.selectMode(PlayMode.THREE_D)
+
+            assertEquals(PlayMode.THREE_D, controller.selectedMode.value)
+            assertEquals(SessionStatus.READY, controller.state.value.status)
+            assertEquals(PlayMode.THREE_D, controller.state.value.mode)
+            assertEquals(3, controller.state.value.board.depth)
+
+            controller.selectMode(PlayMode.TWO_D)
+
+            assertEquals(PlayMode.TWO_D, controller.selectedMode.value)
+            assertEquals(PlayMode.TWO_D, controller.state.value.mode)
+            assertEquals(1, controller.state.value.board.depth)
+        } finally {
+            controller.close()
+        }
+    }
+
+    @Test
+    fun startingThreeDSessionKeepsTheModeAndStateStableUntilNavigationIsImplemented() = runTest {
+        val dispatcher = StandardTestDispatcher(testScheduler)
+        val scope = CoroutineScope(dispatcher + SupervisorJob())
+        val clock = ManualMovementClock()
+        val controller = GameController(
+            scope = scope,
+            movementClock = clock,
+            bestScoreStore = TestBestScoreStore(),
+            random = Random(0),
+        )
+
+        try {
+            controller.selectMode(PlayMode.THREE_D)
+            controller.startNewGame()
+            runCurrent()
+
+            val active = controller.state.value
+            assertEquals(SessionStatus.ACTIVE, active.status)
+            assertEquals(PlayMode.THREE_D, active.mode)
+            assertEquals(0, active.score)
+            assertEquals(0, clock.startCount)
+            assertEquals(
+                DirectionRequestResult.IGNORED_UNSUPPORTED_MODE,
+                controller.requestDirection(Direction.UP),
+            )
+            assertEquals(StepOutcome.UNSUPPORTED_MODE, controller.advanceForTest())
+
+            controller.selectMode(PlayMode.TWO_D)
+            clock.tick()
+            runCurrent()
+
+            assertEquals(PlayMode.THREE_D, controller.selectedMode.value)
+            assertEquals(active, controller.state.value)
+            assertEquals(0, clock.startCount)
+        } finally {
+            controller.close()
+        }
+    }
+
+    @Test
+    fun completedTwoDSessionAllowsSelectingThreeDForTheNextGame() {
+        val controller = testController(random = ZeroRandom())
+
+        try {
+            controller.startNewGame()
+            moveToBoundary(controller)
+
+            assertEquals(SessionStatus.GAME_OVER, controller.state.value.status)
+            val completed = controller.state.value
+
+            controller.selectMode(PlayMode.THREE_D)
+
+            assertEquals(PlayMode.THREE_D, controller.selectedMode.value)
+            assertEquals(completed, controller.state.value)
+
+            controller.startNewGame()
+
+            assertEquals(SessionStatus.ACTIVE, controller.state.value.status)
+            assertEquals(PlayMode.THREE_D, controller.state.value.mode)
         } finally {
             controller.close()
         }

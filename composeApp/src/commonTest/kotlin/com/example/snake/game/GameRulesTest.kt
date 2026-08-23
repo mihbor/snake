@@ -5,6 +5,7 @@ import com.example.snake.game.model.Cell
 import com.example.snake.game.model.CollisionCause
 import com.example.snake.game.model.Direction
 import com.example.snake.game.model.GameState
+import com.example.snake.game.model.PlayMode
 import com.example.snake.game.model.SessionStatus
 import com.example.snake.game.model.Snake
 import com.example.snake.game.rules.DirectionRequestResult
@@ -22,14 +23,22 @@ class GameRulesTest {
     fun boardValidatesDimensionsAndCoordinates() {
         assertFailsWith<IllegalArgumentException> { Board(columns = 0, rows = 20) }
         assertFailsWith<IllegalArgumentException> { Board(columns = 20, rows = -1) }
+        assertFailsWith<IllegalArgumentException> { Board(columns = 20, rows = 20, depth = 0) }
 
         val board = Board(columns = 3, rows = 2)
 
         assertTrue(board.contains(Cell(0, 0)))
         assertTrue(board.contains(Cell(2, 1)))
+        assertTrue(board.contains(Cell(0, 0, 0)))
         assertTrue(!board.contains(Cell(-1, 0)))
         assertTrue(!board.contains(Cell(3, 0)))
         assertTrue(!board.contains(Cell(0, 2)))
+        assertTrue(!board.contains(Cell(0, 0, 1)))
+
+        val volumetricBoard = Board(columns = 3, rows = 2, depth = 2)
+        assertTrue(volumetricBoard.contains(Cell(2, 1, 1)))
+        assertTrue(!volumetricBoard.contains(Cell(2, 1, 2)))
+        assertTrue(!volumetricBoard.contains(Cell(2, 1, -1)))
     }
 
     @Test
@@ -64,6 +73,7 @@ class GameRulesTest {
 
         assertEquals(SessionStatus.ACTIVE, state.status)
         assertEquals(Board(20, 20), state.board)
+        assertEquals(PlayMode.TWO_D, state.mode)
         assertEquals(
             listOf(Cell(10, 10), Cell(9, 10), Cell(8, 10)),
             state.snake.segments,
@@ -77,6 +87,39 @@ class GameRulesTest {
         assertTrue(state.food !in state.snake.segments)
         assertTrue(state.board.contains(state.food))
         assertEquals(state, GameRules.startNewGame(random = Random(0)))
+    }
+
+    @Test
+    fun startingCreatesAThreeDimensionalGameWithAValidMiddleLayerSnakeAndFood() {
+        val state = GameRules.startNewGame(mode = PlayMode.THREE_D, random = Random(0))
+
+        assertEquals(SessionStatus.ACTIVE, state.status)
+        assertEquals(PlayMode.THREE_D, state.mode)
+        assertEquals(Board(columns = 20, rows = 20, depth = 3), state.board)
+        assertEquals(
+            listOf(Cell(10, 10, 1), Cell(9, 10, 1), Cell(8, 10, 1)),
+            state.snake.segments,
+        )
+        assertEquals(Direction.RIGHT, state.currentDirection)
+        assertEquals(0, state.score)
+        assertTrue(state.snake.segments.distinct().size == 3)
+        assertTrue(state.snake.segments.all(state.board::contains))
+        assertTrue(state.board.contains(state.food))
+        assertTrue(state.food !in state.snake.segments)
+        assertEquals(
+            state,
+            GameRules.startNewGame(mode = PlayMode.THREE_D, random = Random(0)),
+        )
+    }
+
+    @Test
+    fun modeAndBoardDepthMustAgreeForAStartedGame() {
+        assertFailsWith<IllegalArgumentException> {
+            GameRules.startNewGame(mode = PlayMode.TWO_D, board = Board(depth = 2))
+        }
+        assertFailsWith<IllegalArgumentException> {
+            GameRules.startNewGame(mode = PlayMode.THREE_D, board = Board())
+        }
     }
 
     @Test
@@ -529,6 +572,19 @@ class GameRulesTest {
         assertEquals(ready, request.state)
         assertEquals(StepOutcome.NOT_ACTIVE, transition.outcome)
         assertEquals(ready, transition.state)
+    }
+
+    @Test
+    fun threeDimensionalPlanarRequestsAndAdvancesAreTypedNoOpsUntilNavigationIsImplemented() {
+        val state = GameRules.startNewGame(mode = PlayMode.THREE_D, random = Random(0))
+
+        val request = GameRules.requestDirection(state, Direction.UP)
+        val transition = GameRules.advance(state)
+
+        assertEquals(DirectionRequestResult.IGNORED_UNSUPPORTED_MODE, request.result)
+        assertEquals(state, request.state)
+        assertEquals(StepOutcome.UNSUPPORTED_MODE, transition.outcome)
+        assertEquals(state, transition.state)
     }
 
     @Test

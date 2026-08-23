@@ -7,4 +7,5 @@ enum class StepOutcome {
     SELF_COLLISION,
     FOOD_COLLECTED,
     FOOD_COLLECTION_BLOCKED,
+    UNSUPPORTED_MODE,
 }
