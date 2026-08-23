@@ -28,6 +28,10 @@ Input can be provided in two ways:
 /spdd-reasons-canvas @requirements/user-registration.md @docs/api-spec.yaml
 ```
 
+**Workflow context**
+
+`/spdd-reasons-canvas` is Phase 2 of the canonical SPDD pipeline. It turns business context or Phase 1 analysis into the structured prompt consumed by `/spdd-generate`; the shared lifecycle, artifact handoffs, and iteration rules are defined in the root `AGENTS.md`.
+
 **Steps**
 
 1. **Validate and consolidate business context**

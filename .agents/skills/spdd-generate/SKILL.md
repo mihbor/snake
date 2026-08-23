@@ -187,47 +187,8 @@ Issue: "AgentService interface shouldn't contain business logic"
 - Always check for and fix linter errors after batch generation
 - When the user explicitly requests a commit, commit prompt and code changes together; otherwise do not create a commit automatically
 
-**Integration with /spdd-analysis and /spdd-reasons-canvas**
+**Workflow context**
 
-This command is the third phase of the SPDD workflow:
+`/spdd-generate` is Phase 3 of the canonical SPDD pipeline. It consumes the structured prompt, validates the requested implementation, and verifies the resulting code; the shared lifecycle and prompt-first iteration rules are defined in the root `AGENTS.md`.
 
-```
-┌─────────────────────────────────────────────────────────────────────────┐
-│                           SPDD Workflow                                  │
-├─────────────────────────────────────────────────────────────────────────┤
-│                                                                          │
-│  Phase 1: /spdd-analysis                                               │
-│  ┌────────────────────────────────────────────────────────────────┐    │
-│  │ Requirement → Alignment → Abstraction → Enriched Context       │    │
-│  │                                                                 │    │
-│  │ Output: Strategic context (business + domain + risks)          │    │
-│  └────────────────────────────────────────────────────────────────┘    │
-│                              │                                          │
-│                              ▼                                          │
-│  Phase 2: /spdd-reasons-canvas                                         │
-│  ┌────────────────────────────────────────────────────────────────┐    │
-│  │ Enriched Context → REASONS Canvas → Structured Prompt          │    │
-│  │                                                                 │    │
-│  │ Output: spdd/prompt/GGQPA-XXX-*.md (REASONS Canvas)           │    │
-│  └────────────────────────────────────────────────────────────────┘    │
-│                              │                                          │
-│                              ▼                                          │
-│  Phase 3: /spdd-generate                                               │
-│  ┌────────────────────────────────────────────────────────────────┐    │
-│  │ Structured Prompt → Validate → Generate → Verify → Code        │    │
-│  │                                                                 │    │
-│  │ Output: Implementation code following Operations sequence       │    │
-│  └────────────────────────────────────────────────────────────────┘    │
-│                              │                                          │
-│                              ▼                                          │
-│  Phase 4: Review & Iteration                                            │
-│  ┌────────────────────────────────────────────────────────────────┐    │
-│  │ Issue Found → Update Prompt → Regenerate → Review or Commit    │    │
-│  │                                                                 │    │
-│  │ Principle: "Fix prompt first, then update code"                │    │
-│  └────────────────────────────────────────────────────────────────┘    │
-│                                                                          │
-└─────────────────────────────────────────────────────────────────────────┘
-```
-
-The structured prompt serves as the **contract** between design and implementation, and must stay in sync with the code throughout the lifecycle.
+The structured prompt is the **contract** between design and implementation; keep it synchronized with the code throughout the lifecycle.

@@ -224,46 +224,9 @@ When syncing different types of changes:
 - When in doubt, show the proposed change and ask user to confirm
 - Never change the prompt's unique identifier or metadata
 
-**Integration with SPDD Workflow**
+**Workflow context**
 
-This command completes the bidirectional sync in the SPDD workflow:
-
-```
-┌─────────────────────────────────────────────────────────────────────────┐
-│                      SPDD Bidirectional Sync                            │
-├─────────────────────────────────────────────────────────────────────────┤
-│                                                                          │
-│  Forward Flow (Design → Code): /spdd-generate                          │
-│  ┌────────────────────────────────────────────────────────────────┐    │
-│  │ Structured Prompt → Validate → Generate → Verify → Code        │    │
-│  └────────────────────────────────────────────────────────────────┘    │
-│                              │                                          │
-│                              │ Initial Implementation                   │
-│                              ▼                                          │
-│                    ┌─────────────────┐                                  │
-│                    │  Implementation  │                                  │
-│                    │     Codebase     │                                  │
-│                    └─────────────────┘                                  │
-│                              │                                          │
-│                              │ Code Review / Refactoring                │
-│                              ▼                                          │
-│  Reverse Flow (Code → Design): /spdd-sync                              │
-│  ┌────────────────────────────────────────────────────────────────┐    │
-│  │ Analyze Changes → Compare → Plan Updates → Update Prompt       │    │
-│  └────────────────────────────────────────────────────────────────┘    │
-│                              │                                          │
-│                              ▼                                          │
-│  ┌────────────────────────────────────────────────────────────────┐    │
-│  │              Prompt-Code Consistency Maintained                 │    │
-│  │                                                                 │    │
-│  │  - Prompt remains source of truth                              │    │
-│  │  - Code changes are documented in prompt                       │    │
-│  │  - Future generations use updated specifications               │    │
-│  │  - Team alignment on actual vs planned implementation          │    │
-│  └────────────────────────────────────────────────────────────────┘    │
-│                                                                          │
-└─────────────────────────────────────────────────────────────────────────┘
-```
+`/spdd-sync` is the code-first synchronization path in the canonical SPDD workflow. Use it when implementation changes before the prompt so the prompt reflects actual code; the shared lifecycle, artifact handoffs, and prompt-first alternative are defined in the root `AGENTS.md`.
 
 **When to Use /spdd-sync**
 

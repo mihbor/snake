@@ -160,46 +160,9 @@ The SPDD prompt file is a **specification document**, not source code. It descri
 - **Backward compatibility**: Consider impact on any existing implementation
 - **Traceability**: Changes should be clearly identifiable in the updated sections
 
-**Integration with SPDD Workflow**
+**Workflow context**
 
-This command supports the iterative refinement cycle in SPDD:
-
-```
-┌─────────────────────────────────────────────────────────────────────────┐
-│                    SPDD Prompt Lifecycle                                 │
-├─────────────────────────────────────────────────────────────────────────┤
-│                                                                          │
-│  Create: /spdd-reasons-canvas                                           │
-│  ┌────────────────────────────────────────────────────────────────┐    │
-│  │ Business Context → REASONS Canvas → spdd/prompt/*.md            │    │
-│  └────────────────────────────────────────────────────────────────┘    │
-│                              │                                          │
-│                              ▼                                          │
-│  Update: /spdd-prompt-update  ◄────────────────────────┐               │
-│  ┌────────────────────────────────────────────────────────────────┐    │
-│  │ Existing Prompt + Change Request → Updated Prompt              │    │
-│  │                                                                 │    │
-│  │ Triggers:                                                       │    │
-│  │ - New requirements from stakeholders                           │    │
-│  │ - Architectural refinements                                    │    │
-│  │ - Bug fixes in specification                                   │    │
-│  │ - Constraint additions                                         │    │
-│  └────────────────────────────────────────────────────────────────┘    │
-│                              │                                          │
-│                              ▼                                          │
-│  Generate: /spdd-generate                                               │
-│  ┌────────────────────────────────────────────────────────────────┐    │
-│  │ Structured Prompt → Implementation Code                         │    │
-│  └────────────────────────────────────────────────────────────────┘    │
-│                              │                                          │
-│                              ▼                                          │
-│  Sync: /spdd-sync (if code changes first)                              │
-│  ┌────────────────────────────────────────────────────────────────┐    │
-│  │ Code Changes → Update Prompt → Maintain Consistency            │────┘
-│  └────────────────────────────────────────────────────────────────┘    │
-│                                                                          │
-└─────────────────────────────────────────────────────────────────────────┘
-```
+`/spdd-prompt-update` is the prompt-first iteration path in the canonical SPDD workflow. Use it when requirements or design change before implementation, then regenerate affected code with `/spdd-generate`; the shared lifecycle and artifact handoffs are defined in the root `AGENTS.md`.
 
 **Common Update Scenarios**
 
