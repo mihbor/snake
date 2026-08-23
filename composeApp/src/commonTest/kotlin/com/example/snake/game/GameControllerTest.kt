@@ -48,6 +48,7 @@ class GameControllerTest {
         val controller = GameController(
             scope = scope,
             movementClock = clock,
+            bestScoreStore = TestBestScoreStore(),
         )
 
         try {
@@ -78,6 +79,7 @@ class GameControllerTest {
         val controller = GameController(
             scope = scope,
             movementClock = clock,
+            bestScoreStore = TestBestScoreStore(),
         )
 
         try {
@@ -141,6 +143,7 @@ class GameControllerTest {
         val controller = GameController(
             scope = scope,
             movementClock = clock,
+            bestScoreStore = TestBestScoreStore(),
         )
 
         try {
@@ -173,6 +176,7 @@ class GameControllerTest {
         val controller = GameController(
             scope = scope,
             movementClock = CoroutineMovementClock(),
+            bestScoreStore = TestBestScoreStore(),
         )
 
         try {
@@ -196,6 +200,7 @@ class GameControllerTest {
         val controller = GameController(
             scope = scope,
             movementClock = clock,
+            bestScoreStore = TestBestScoreStore(),
             random = FirstThenOtherRowRandom(),
         )
 
@@ -244,6 +249,7 @@ class GameControllerTest {
         val controller = GameController(
             scope = scope,
             movementClock = clock,
+            bestScoreStore = TestBestScoreStore(),
             random = ZeroRandom(),
         )
 
@@ -322,10 +328,189 @@ class GameControllerTest {
         assertEquals(activeState, controller.state.value)
     }
 
-    private fun testController(): GameController = GameController(
+    @Test
+    fun controllerLoadsBestScoreWithoutRestoringThePreviousSession() {
+        val store = TestBestScoreStore(storedScore = 50)
+        val controller = GameController(
+            bestScoreStore = store,
+            scope = CoroutineScope(SupervisorJob()),
+            movementClock = ManualMovementClock(),
+            random = Random(0),
+        )
+
+        try {
+            assertEquals(SessionStatus.READY, controller.state.value.status)
+            assertEquals(0, controller.state.value.score)
+            assertEquals(50, controller.bestScore)
+            assertEquals(1, store.readCount)
+        } finally {
+            controller.close()
+        }
+    }
+
+    @Test
+    fun higherCompletedScoreUpdatesBestBeforeTheTerminalStateIsObserved() {
+        val store = TestBestScoreStore()
+        val controller = testController(store = store, random = ZeroRandom())
+
+        try {
+            controller.startNewGame()
+            moveToFood(controller)
+
+            assertEquals(SessionStatus.ACTIVE, controller.state.value.status)
+            assertEquals(10, controller.state.value.score)
+            assertEquals(0, store.writeCount)
+            assertEquals(0, controller.bestScore)
+
+            moveIntoBoundary(controller)
+
+            assertEquals(SessionStatus.GAME_OVER, controller.state.value.status)
+            assertEquals(10, controller.state.value.score)
+            assertEquals(10, controller.bestScore)
+            assertEquals(1, store.writeCount)
+            assertEquals(10, store.lastWrittenScore)
+
+            assertEquals(StepOutcome.NOT_ACTIVE, controller.advanceForTest())
+            assertEquals(1, store.writeCount)
+        } finally {
+            controller.close()
+        }
+    }
+
+    @Test
+    fun lowerOrEqualCompletedScoresDoNotReplaceTheBestOrTheFinalScore() {
+        val store = TestBestScoreStore(storedScore = 10)
+        val lowerController = testController(store = store, random = ZeroRandom())
+
+        try {
+            lowerController.startNewGame()
+            moveToBoundary(lowerController)
+
+            assertEquals(SessionStatus.GAME_OVER, lowerController.state.value.status)
+            assertEquals(0, lowerController.state.value.score)
+            assertEquals(10, lowerController.bestScore)
+            assertEquals(0, store.writeCount)
+        } finally {
+            lowerController.close()
+        }
+
+        val equalController = testController(store = store, random = ZeroRandom())
+        try {
+            equalController.startNewGame()
+            moveToFood(equalController)
+            moveIntoBoundary(equalController)
+
+            assertEquals(SessionStatus.GAME_OVER, equalController.state.value.status)
+            assertEquals(10, equalController.state.value.score)
+            assertEquals(10, equalController.bestScore)
+            assertEquals(0, store.writeCount)
+        } finally {
+            equalController.close()
+        }
+    }
+
+    @Test
+    fun restartAndLaterControllerKeepTheBestButResetOnlyTheCurrentScore() {
+        val store = TestBestScoreStore()
+        val controller = testController(store = store, random = ZeroRandom())
+
+        try {
+            controller.startNewGame()
+            moveToFood(controller)
+            moveIntoBoundary(controller)
+            assertEquals(10, controller.bestScore)
+
+            controller.startNewGame()
+
+            assertEquals(SessionStatus.ACTIVE, controller.state.value.status)
+            assertEquals(0, controller.state.value.score)
+            assertEquals(10, controller.bestScore)
+            assertEquals(1, store.writeCount)
+        } finally {
+            controller.close()
+        }
+
+        val reopenedController = testController(store = store, random = Random(0))
+        try {
+            assertEquals(SessionStatus.READY, reopenedController.state.value.status)
+            assertEquals(0, reopenedController.state.value.score)
+            assertEquals(10, reopenedController.bestScore)
+        } finally {
+            reopenedController.close()
+        }
+    }
+
+    @Test
+    fun unfinishedScoreIsNotPersistedWhenTheControllerIsPausedOrClosed() {
+        val store = TestBestScoreStore()
+        val controller = testController(store = store, random = ZeroRandom())
+
+        controller.startNewGame()
+        moveToFood(controller)
+        controller.pause()
+
+        assertEquals(SessionStatus.PAUSED, controller.state.value.status)
+        assertEquals(10, controller.state.value.score)
+        assertEquals(0, controller.bestScore)
+        assertEquals(0, store.writeCount)
+
+        controller.close()
+
+        assertEquals(0, store.storedScore)
+        assertEquals(0, store.writeCount)
+    }
+
+    @Test
+    fun storageFailuresDoNotBreakTerminalPresentation() {
+        val readFailureStore = TestBestScoreStore(readFailure = true)
+        val readFailureController = testController(store = readFailureStore, random = Random(0))
+        try {
+            assertEquals(0, readFailureController.bestScore)
+            assertEquals(0, readFailureController.state.value.score)
+        } finally {
+            readFailureController.close()
+        }
+
+        val writeFailureStore = TestBestScoreStore(writeFailure = true)
+        val writeFailureController = testController(store = writeFailureStore, random = ZeroRandom())
+        try {
+            writeFailureController.startNewGame()
+            moveToFood(writeFailureController)
+            moveIntoBoundary(writeFailureController)
+
+            assertEquals(SessionStatus.GAME_OVER, writeFailureController.state.value.status)
+            assertEquals(10, writeFailureController.state.value.score)
+            assertEquals(10, writeFailureController.bestScore)
+        } finally {
+            writeFailureController.close()
+        }
+    }
+
+    private fun testController(
+        store: TestBestScoreStore = TestBestScoreStore(),
+        random: Random = Random(0),
+    ): GameController = GameController(
+        bestScoreStore = store,
         scope = CoroutineScope(SupervisorJob()),
         movementClock = ManualMovementClock(),
+        random = random,
     )
+
+    private fun moveToFood(controller: GameController) {
+        assertEquals(DirectionRequestResult.ACCEPTED, controller.requestDirection(Direction.UP))
+        repeat(10) { controller.advanceForTest() }
+        assertEquals(DirectionRequestResult.ACCEPTED, controller.requestDirection(Direction.LEFT))
+        repeat(10) { controller.advanceForTest() }
+    }
+
+    private fun moveIntoBoundary(controller: GameController) {
+        controller.advanceForTest()
+    }
+
+    private fun moveToBoundary(controller: GameController) {
+        assertEquals(DirectionRequestResult.ACCEPTED, controller.requestDirection(Direction.UP))
+        repeat(11) { controller.advanceForTest() }
+    }
 }
 
 private class ManualMovementClock : MovementClock {

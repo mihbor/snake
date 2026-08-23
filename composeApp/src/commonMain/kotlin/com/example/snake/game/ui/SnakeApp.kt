@@ -10,10 +10,14 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.foundation.layout.fillMaxSize
 import com.example.snake.game.controller.GameController
+import com.example.snake.game.persistence.BestScoreStore
 
 @Composable
-fun SnakeApp(capabilities: InputCapabilities) {
-    val controller = remember { GameController() }
+fun SnakeApp(
+    capabilities: InputCapabilities,
+    bestScoreStore: BestScoreStore,
+) {
+    val controller = remember { GameController(bestScoreStore = bestScoreStore) }
     val state by controller.state.collectAsState()
 
     DisposableEffect(controller) {
@@ -24,6 +28,7 @@ fun SnakeApp(capabilities: InputCapabilities) {
         Surface(modifier = Modifier.fillMaxSize()) {
             GameScreen(
                 state = state,
+                bestScore = controller.bestScore,
                 capabilities = capabilities,
                 onStart = controller::startNewGame,
                 onDirection = controller::requestDirection,

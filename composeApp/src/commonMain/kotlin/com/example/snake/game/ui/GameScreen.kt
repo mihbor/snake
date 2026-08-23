@@ -51,6 +51,7 @@ import com.example.snake.game.model.SessionStatus
 @Composable
 fun GameScreen(
     state: GameState,
+    bestScore: Int,
     capabilities: InputCapabilities,
     onStart: () -> Unit,
     onDirection: (Direction) -> Unit,
@@ -103,14 +104,17 @@ fun GameScreen(
             Text("Snake", style = MaterialTheme.typography.headlineMedium)
             Spacer(modifier = Modifier.size(8.dp))
             Text(
-                text = "Score: ${state.score}",
+                text = currentScoreLabel(state),
                 style = MaterialTheme.typography.titleMedium,
                 modifier = Modifier.semantics {
-                    contentDescription = when (state.status) {
-                        SessionStatus.READY, SessionStatus.ACTIVE, SessionStatus.PAUSED ->
-                            "Current score: ${state.score}"
-                        SessionStatus.GAME_OVER -> "Final score: ${state.score}"
-                    }
+                    contentDescription = currentScoreLabel(state)
+                },
+            )
+            Text(
+                text = bestScoreLabel(bestScore),
+                style = MaterialTheme.typography.titleMedium,
+                modifier = Modifier.semantics {
+                    contentDescription = bestScoreLabel(bestScore)
                 },
             )
             Spacer(modifier = Modifier.size(8.dp))
@@ -221,6 +225,14 @@ fun GameScreen(
         }
     }
 }
+
+internal fun currentScoreLabel(state: GameState): String = when (state.status) {
+    SessionStatus.READY, SessionStatus.ACTIVE, SessionStatus.PAUSED ->
+        "Current score: ${state.score}"
+    SessionStatus.GAME_OVER -> "Final score: ${state.score}"
+}
+
+internal fun bestScoreLabel(bestScore: Int): String = "Best score: $bestScore"
 
 @Composable
 private fun SnakeBoard(state: GameState, modifier: Modifier = Modifier) {

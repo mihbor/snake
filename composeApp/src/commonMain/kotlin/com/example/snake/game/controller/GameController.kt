@@ -3,6 +3,8 @@ package com.example.snake.game.controller
 import com.example.snake.game.model.GameState
 import com.example.snake.game.model.Direction
 import com.example.snake.game.model.SessionStatus
+import com.example.snake.game.persistence.BestScoreStore
+import com.example.snake.game.persistence.normalizeBestScore
 import com.example.snake.game.rules.DirectionRequestResult
 import com.example.snake.game.rules.GameRules
 import com.example.snake.game.rules.StepOutcome
@@ -20,6 +22,7 @@ import kotlinx.coroutines.launch
 import kotlin.random.Random
 
 class GameController(
+    private val bestScoreStore: BestScoreStore,
     private val scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Default),
     private val movementClock: MovementClock = CoroutineMovementClock(),
     private val movementIntervalMillis: Long = DEFAULT_MOVEMENT_INTERVAL_MILLIS,
@@ -29,12 +32,15 @@ class GameController(
         const val DEFAULT_MOVEMENT_INTERVAL_MILLIS = 150L
     }
 
+    private var bestScoreValue = readBestScore()
     private val _state = MutableStateFlow(readyState())
     private var movementJob: Job? = null
     private var sessionGeneration = 0L
     private var closed = false
 
     val state: StateFlow<GameState> = _state.asStateFlow()
+    val bestScore: Int
+        get() = bestScoreValue
 
     fun startNewGame() {
         if (closed) return
@@ -92,6 +98,11 @@ class GameController(
                 currentState
             } else {
                 val transition = GameRules.advance(currentState, random = random)
+                if (currentState.status == SessionStatus.ACTIVE &&
+                    transition.state.status == SessionStatus.GAME_OVER
+                ) {
+                    recordCompletedScore(transition.state.score)
+                }
                 outcome = transition.outcome
                 shouldStopClock = transition.state.status == SessionStatus.GAME_OVER
                 transition.state
@@ -133,4 +144,16 @@ class GameController(
 
     private fun readyState(): GameState =
         GameRules.startNewGame(random = random).copy(status = SessionStatus.READY)
+
+    private fun readBestScore(): Int = runCatching {
+        normalizeBestScore(bestScoreStore.readBestScore())
+    }.getOrDefault(0)
+
+    private fun recordCompletedScore(completedScore: Int) {
+        val normalizedScore = normalizeBestScore(completedScore)
+        if (normalizedScore <= bestScoreValue) return
+
+        bestScoreValue = normalizedScore
+        runCatching { bestScoreStore.writeIfHigher(normalizedScore) }
+    }
 }
