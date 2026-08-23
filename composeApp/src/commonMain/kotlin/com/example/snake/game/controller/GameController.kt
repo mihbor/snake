@@ -63,9 +63,23 @@ class GameController(
         return result
     }
 
-    fun advanceForTest(): StepOutcome {
-        return advanceForGeneration(sessionGeneration)
+    fun pause() {
+        if (closed || _state.value.status != SessionStatus.ACTIVE) return
+
+        _state.update { currentState -> GameRules.pause(currentState) }
+        sessionGeneration += 1
+        stopMovementClock(sessionGeneration)
     }
+
+    fun resume() {
+        if (closed || _state.value.status != SessionStatus.PAUSED) return
+
+        _state.update { currentState -> GameRules.resume(currentState) }
+        sessionGeneration += 1
+        startClock()
+    }
+
+    fun advanceForTest(): StepOutcome = advanceForGeneration(sessionGeneration)
 
     private fun advanceForGeneration(generation: Long): StepOutcome {
         if (closed || generation != sessionGeneration) return StepOutcome.NOT_ACTIVE

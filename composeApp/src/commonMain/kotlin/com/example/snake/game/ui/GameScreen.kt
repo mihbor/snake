@@ -55,6 +55,8 @@ fun GameScreen(
     onStart: () -> Unit,
     onDirection: (Direction) -> Unit,
     modifier: Modifier = Modifier,
+    onPause: () -> Unit = {},
+    onResume: () -> Unit = {},
 ) {
     val focusRequester = remember { FocusRequester() }
 
@@ -66,7 +68,7 @@ fun GameScreen(
 
     val keyboardModifier = if (capabilities.keyboard) {
         Modifier.onPreviewKeyEvent { event ->
-            handleKeyboardEvent(event, state, onDirection)
+            handleKeyboardEvent(event, state, onDirection, onPause)
         }
     } else {
         Modifier
@@ -86,6 +88,7 @@ fun GameScreen(
         val boardFraction = when (state.status) {
             SessionStatus.READY -> 0.44f
             SessionStatus.ACTIVE -> if (capabilities.touch) 0.34f else 0.58f
+            SessionStatus.PAUSED -> if (capabilities.touch) 0.34f else 0.58f
             SessionStatus.GAME_OVER -> 0.58f
         }
         val boardSize = maxOf(1.dp, minOf(maxWidth - 32.dp, availableHeight * boardFraction))
@@ -104,7 +107,8 @@ fun GameScreen(
                 style = MaterialTheme.typography.titleMedium,
                 modifier = Modifier.semantics {
                     contentDescription = when (state.status) {
-                        SessionStatus.READY, SessionStatus.ACTIVE -> "Current score: ${state.score}"
+                        SessionStatus.READY, SessionStatus.ACTIVE, SessionStatus.PAUSED ->
+                            "Current score: ${state.score}"
                         SessionStatus.GAME_OVER -> "Final score: ${state.score}"
                     }
                 },
@@ -140,6 +144,16 @@ fun GameScreen(
                             }
                         } ?: Modifier,
                     )
+                    Spacer(modifier = Modifier.size(12.dp))
+                    Button(
+                        onClick = onPause,
+                        modifier = Modifier.semantics {
+                            contentDescription = "Pause game"
+                            role = Role.Button
+                        },
+                    ) {
+                        Text("Pause")
+                    }
                     if (capabilities.touch) {
                         Spacer(modifier = Modifier.size(12.dp))
                         DirectionControls(
@@ -149,7 +163,27 @@ fun GameScreen(
                     }
                     if (capabilities.keyboard) {
                         Spacer(modifier = Modifier.size(8.dp))
-                        Text("Use Arrow keys or W/A/S/D")
+                        Text("Use Arrow keys or W/A/S/D to steer. Press P or Space to pause.")
+                    }
+                }
+
+                SessionStatus.PAUSED -> {
+                    Text(
+                        text = "Paused",
+                        modifier = Modifier.semantics {
+                            contentDescription = "Paused"
+                            stateDescription = "Paused"
+                        },
+                    )
+                    Spacer(modifier = Modifier.size(8.dp))
+                    Button(
+                        onClick = onResume,
+                        modifier = Modifier.semantics {
+                            contentDescription = "Resume game"
+                            role = Role.Button
+                        },
+                    ) {
+                        Text("Resume")
                     }
                 }
 
@@ -302,6 +336,7 @@ private fun handleKeyboardEvent(
     event: KeyEvent,
     state: GameState,
     onDirection: (Direction) -> Unit,
+    onPause: () -> Unit,
 ): Boolean {
     if (state.status != SessionStatus.ACTIVE ||
         event.type != KeyEventType.KeyDown
@@ -309,12 +344,18 @@ private fun handleKeyboardEvent(
         return false
     }
 
-    val direction = KeyboardDirectionMapper.toDirection(event.key.toGameKey() ?: return false) ?: return false
+    val gameKey = event.key.toGameKey() ?: return false
+    if (gameKey == GameKey.P || gameKey == GameKey.SPACE) {
+        onPause()
+        return true
+    }
+
+    val direction = KeyboardDirectionMapper.toDirection(gameKey) ?: return false
     onDirection(direction)
     return true
 }
 
-private fun Key.toGameKey(): GameKey? = when (this) {
+internal fun Key.toGameKey(): GameKey? = when (this) {
     Key.DirectionUp -> GameKey.ARROW_UP
     Key.DirectionDown -> GameKey.ARROW_DOWN
     Key.DirectionLeft -> GameKey.ARROW_LEFT
@@ -323,6 +364,8 @@ private fun Key.toGameKey(): GameKey? = when (this) {
     Key.A -> GameKey.A
     Key.S -> GameKey.S
     Key.D -> GameKey.D
+    Key.P -> GameKey.P
+    Key.Spacebar -> GameKey.SPACE
     else -> null
 }
 

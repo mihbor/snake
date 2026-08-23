@@ -43,6 +43,18 @@ object GameRules {
         )
     }
 
+    fun pause(state: GameState): GameState = if (state.status == SessionStatus.ACTIVE) {
+        state.copy(status = SessionStatus.PAUSED)
+    } else {
+        state
+    }
+
+    fun resume(state: GameState): GameState = if (state.status == SessionStatus.PAUSED) {
+        state.copy(status = SessionStatus.ACTIVE)
+    } else {
+        state
+    }
+
     /**
      * Retains the first accepted turn until the next successful step. Repeating that turn is
      * idempotent, while a different request cannot replace it before it is applied.

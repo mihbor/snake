@@ -80,6 +80,84 @@ class GameRulesTest {
     }
 
     @Test
+    fun pauseAndResumePreserveTheCompleteSessionSnapshot() {
+        val active = GameRules.startNewGame(random = Random(0)).copy(
+            pendingDirection = Direction.UP,
+            score = 20,
+        )
+
+        val paused = GameRules.pause(active)
+
+        assertEquals(SessionStatus.PAUSED, paused.status)
+        assertEquals(active.copy(status = SessionStatus.PAUSED), paused)
+        assertEquals(active, GameRules.resume(paused))
+    }
+
+    @Test
+    fun invalidPauseAndResumeRequestsAreUnchangedStateNoOps() {
+        val active = GameRules.startNewGame(random = Random(0))
+        val ready = active.copy(status = SessionStatus.READY)
+        val terminal = GameRules.advance(
+            GameState(
+                status = SessionStatus.ACTIVE,
+                board = Board(columns = 2, rows = 2),
+                snake = Snake(listOf(Cell(1, 0))),
+                currentDirection = Direction.RIGHT,
+                pendingDirection = null,
+                score = 20,
+                food = Cell(0, 1),
+            ),
+        ).state
+        val paused = GameRules.pause(active)
+
+        assertEquals(ready, GameRules.pause(ready))
+        assertEquals(terminal, GameRules.pause(terminal))
+        assertEquals(active, GameRules.resume(active))
+        assertEquals(ready, GameRules.resume(ready))
+        assertEquals(terminal, GameRules.resume(terminal))
+        assertEquals(paused, GameRules.pause(paused))
+    }
+
+    @Test
+    fun pausedAdvancesAndDirectionRequestsPreserveTheSnapshot() {
+        val active = GameRules.startNewGame(random = Random(0)).copy(
+            pendingDirection = Direction.UP,
+            score = 20,
+        )
+        val paused = GameRules.pause(active)
+
+        repeat(3) {
+            val transition = GameRules.advance(paused)
+            assertEquals(StepOutcome.NOT_ACTIVE, transition.outcome)
+            assertEquals(paused, transition.state)
+        }
+        Direction.values().forEach { direction ->
+            val request = GameRules.requestDirection(paused, direction)
+            assertEquals(DirectionRequestResult.IGNORED_INACTIVE, request.result)
+            assertEquals(paused, request.state)
+        }
+    }
+
+    @Test
+    fun resumeRetainsPendingTurnAcceptedBeforePauseOnly() {
+        val active = GameRules.startNewGame(random = Random(0)).copy(
+            pendingDirection = Direction.UP,
+        )
+        val paused = GameRules.pause(active)
+
+        val pausedRequest = GameRules.requestDirection(paused, Direction.LEFT)
+        val resumed = GameRules.resume(paused)
+        val transition = GameRules.advance(resumed)
+
+        assertEquals(DirectionRequestResult.IGNORED_INACTIVE, pausedRequest.result)
+        assertEquals(paused, pausedRequest.state)
+        assertEquals(active, resumed)
+        assertEquals(Cell(10, 9), transition.state.snake.head())
+        assertEquals(Direction.UP, transition.state.currentDirection)
+        assertEquals(null, transition.state.pendingDirection)
+    }
+
+    @Test
     fun freshGamesCanPlaceFoodBelowTheTopRow() {
         val foods = (0 until 32).map { seed ->
             GameRules.startNewGame(random = Random(seed)).food

@@ -27,6 +27,8 @@ fun SnakeApp(capabilities: InputCapabilities) {
                 capabilities = capabilities,
                 onStart = controller::startNewGame,
                 onDirection = controller::requestDirection,
+                onPause = controller::pause,
+                onResume = controller::resume,
                 modifier = Modifier,
             )
         }

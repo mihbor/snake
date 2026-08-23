@@ -71,6 +71,102 @@ class GameControllerTest {
     }
 
     @Test
+    fun pauseFreezesTheSnapshotAndResumeStartsOneNormalClock() = runTest {
+        val dispatcher = StandardTestDispatcher(testScheduler)
+        val scope = CoroutineScope(dispatcher + SupervisorJob())
+        val clock = ManualMovementClock()
+        val controller = GameController(
+            scope = scope,
+            movementClock = clock,
+        )
+
+        try {
+            controller.startNewGame()
+            runCurrent()
+            assertEquals(DirectionRequestResult.ACCEPTED, controller.requestDirection(Direction.UP))
+
+            controller.pause()
+            runCurrent()
+            val paused = controller.state.value
+
+            assertEquals(SessionStatus.PAUSED, paused.status)
+            assertEquals(Direction.RIGHT, paused.currentDirection)
+            assertEquals(Direction.UP, paused.pendingDirection)
+            assertEquals(1, clock.startCount)
+            assertEquals(1, clock.stopCount)
+
+            repeat(3) {
+                clock.tick()
+                assertEquals(DirectionRequestResult.IGNORED_INACTIVE, controller.requestDirection(Direction.LEFT))
+                assertEquals(DirectionRequestResult.IGNORED_INACTIVE, controller.requestDirection(Direction.DOWN))
+                runCurrent()
+            }
+            assertEquals(paused, controller.state.value)
+            assertEquals(1, clock.startCount)
+            assertEquals(1, clock.stopCount)
+
+            controller.pause()
+            assertEquals(paused, controller.state.value)
+            assertEquals(1, clock.startCount)
+            assertEquals(1, clock.stopCount)
+
+            controller.resume()
+            runCurrent()
+
+            val resumed = controller.state.value
+            assertEquals(paused.copy(status = SessionStatus.ACTIVE), resumed)
+            assertEquals(2, clock.startCount)
+            assertEquals(150L, clock.lastIntervalMillis)
+
+            controller.resume()
+            runCurrent()
+            assertEquals(2, clock.startCount)
+
+            clock.tick()
+            runCurrent()
+
+            assertEquals(Cell(10, 9), controller.state.value.snake.head())
+            assertEquals(Direction.UP, controller.state.value.currentDirection)
+            assertEquals(null, controller.state.value.pendingDirection)
+        } finally {
+            controller.close()
+        }
+    }
+
+    @Test
+    fun queuedTickBeforePauseCannotAdvanceTheResumedSession() = runTest {
+        val dispatcher = StandardTestDispatcher(testScheduler)
+        val scope = CoroutineScope(dispatcher + SupervisorJob())
+        val clock = ManualMovementClock()
+        val controller = GameController(
+            scope = scope,
+            movementClock = clock,
+        )
+
+        try {
+            controller.startNewGame()
+            runCurrent()
+            val initial = controller.state.value
+
+            clock.tick()
+            controller.pause()
+            runCurrent()
+            val paused = controller.state.value
+            assertEquals(initial.copy(status = SessionStatus.PAUSED), paused)
+
+            controller.resume()
+            runCurrent()
+            assertEquals(paused.copy(status = SessionStatus.ACTIVE), controller.state.value)
+
+            clock.tick()
+            runCurrent()
+            assertEquals(Cell(11, 10), controller.state.value.snake.head())
+        } finally {
+            controller.close()
+        }
+    }
+
+    @Test
     fun productionClockMovesTheSnakeAfterOneMovementInterval() = runTest {
         val dispatcher = StandardTestDispatcher(testScheduler)
         val scope = CoroutineScope(dispatcher + SupervisorJob())
@@ -174,6 +270,10 @@ class GameControllerTest {
             assertEquals(1, clock.startCount)
             assertEquals(DirectionRequestResult.IGNORED_INACTIVE, controller.requestDirection(Direction.LEFT))
 
+            controller.pause()
+            controller.resume()
+            assertEquals(terminal, controller.state.value)
+
             repeat(3) {
                 clock.tick()
                 runCurrent()
@@ -235,11 +335,17 @@ private class ManualMovementClock : MovementClock {
         private set
     var lastIntervalMillis: Long? = null
         private set
+    var stopCount: Int = 0
+        private set
 
     override fun ticks(intervalMillis: Long): Flow<Unit> = flow {
         startCount += 1
         lastIntervalMillis = intervalMillis
-        emitAll(ticks)
+        try {
+            emitAll(ticks)
+        } finally {
+            stopCount += 1
+        }
     }
 
     fun tick() {
