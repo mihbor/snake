@@ -2,6 +2,7 @@ package com.example.snake.game
 
 import com.example.snake.game.model.Board
 import com.example.snake.game.model.Cell
+import com.example.snake.game.model.CollisionCause
 import com.example.snake.game.model.Direction
 import com.example.snake.game.model.GameState
 import com.example.snake.game.model.SessionStatus
@@ -9,6 +10,7 @@ import com.example.snake.game.model.Snake
 import com.example.snake.game.rules.DirectionRequestResult
 import com.example.snake.game.rules.GameRules
 import com.example.snake.game.rules.StepOutcome
+import com.example.snake.game.ui.collisionMessage
 import kotlin.random.Random
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -69,6 +71,7 @@ class GameRulesTest {
         assertEquals(Direction.RIGHT, state.currentDirection)
         assertEquals(null, state.pendingDirection)
         assertEquals(0, state.score)
+        assertEquals(null, state.collisionCause)
         assertTrue(state.snake.segments.distinct().size == 3)
         assertTrue(state.snake.segments.all(state.board::contains))
         assertTrue(state.food !in state.snake.segments)
@@ -120,6 +123,117 @@ class GameRulesTest {
     }
 
     @Test
+    fun everyOutwardBoardStepProducesBoundaryGameOverWithoutMovingTheSnake() {
+        val edgeCases = listOf(
+            GameState(
+                status = SessionStatus.ACTIVE,
+                board = Board(columns = 4, rows = 4),
+                snake = Snake(listOf(Cell(1, 0), Cell(1, 1), Cell(1, 2))),
+                currentDirection = Direction.UP,
+                pendingDirection = Direction.UP,
+                score = 30,
+                food = Cell(3, 3),
+            ),
+            GameState(
+                status = SessionStatus.ACTIVE,
+                board = Board(columns = 4, rows = 4),
+                snake = Snake(listOf(Cell(1, 3), Cell(1, 2), Cell(1, 1))),
+                currentDirection = Direction.DOWN,
+                pendingDirection = Direction.DOWN,
+                score = 30,
+                food = Cell(3, 0),
+            ),
+            GameState(
+                status = SessionStatus.ACTIVE,
+                board = Board(columns = 4, rows = 4),
+                snake = Snake(listOf(Cell(0, 1), Cell(1, 1), Cell(2, 1))),
+                currentDirection = Direction.LEFT,
+                pendingDirection = Direction.LEFT,
+                score = 30,
+                food = Cell(3, 3),
+            ),
+            GameState(
+                status = SessionStatus.ACTIVE,
+                board = Board(columns = 4, rows = 4),
+                snake = Snake(listOf(Cell(3, 1), Cell(2, 1), Cell(1, 1))),
+                currentDirection = Direction.RIGHT,
+                pendingDirection = Direction.RIGHT,
+                score = 30,
+                food = Cell(0, 3),
+            ),
+        )
+
+        edgeCases.forEach { initial ->
+            val transition = GameRules.advance(initial)
+
+            assertEquals(StepOutcome.BOUNDARY_COLLISION, transition.outcome)
+            assertEquals(SessionStatus.GAME_OVER, transition.state.status)
+            assertEquals(CollisionCause.BOUNDARY, transition.state.collisionCause)
+            assertEquals(initial.board, transition.state.board)
+            assertEquals(initial.snake, transition.state.snake)
+            assertEquals(initial.score, transition.state.score)
+            assertEquals(initial.food, transition.state.food)
+            assertEquals(initial.currentDirection, transition.state.currentDirection)
+            assertEquals(null, transition.state.pendingDirection)
+            assertTrue(transition.state.snake.segments.all(transition.state.board::contains))
+        }
+    }
+
+    @Test
+    fun interiorSelfCollisionRetainsTheFinalScoreAndSafeSnapshot() {
+        val initial = GameState(
+            status = SessionStatus.ACTIVE,
+            board = Board(columns = 6, rows = 6),
+            snake = Snake(
+                listOf(
+                    Cell(2, 2),
+                    Cell(2, 1),
+                    Cell(1, 1),
+                    Cell(1, 2),
+                    Cell(1, 3),
+                ),
+            ),
+            currentDirection = Direction.RIGHT,
+            pendingDirection = Direction.UP,
+            score = 30,
+            food = Cell(5, 5),
+        )
+
+        val transition = GameRules.advance(initial)
+
+        assertEquals(StepOutcome.SELF_COLLISION, transition.outcome)
+        assertEquals(SessionStatus.GAME_OVER, transition.state.status)
+        assertEquals(CollisionCause.SELF_COLLISION, transition.state.collisionCause)
+        assertEquals(initial.snake, transition.state.snake)
+        assertEquals(30, transition.state.score)
+        assertEquals(initial.food, transition.state.food)
+        assertEquals(Direction.RIGHT, transition.state.currentDirection)
+        assertEquals(null, transition.state.pendingDirection)
+        assertTrue(transition.state.snake.segments.distinct().size == transition.state.snake.segments.size)
+    }
+
+    @Test
+    fun selfCollisionIncludesTheTailCellBeforeMovementDropsIt() {
+        val initial = GameState(
+            status = SessionStatus.ACTIVE,
+            board = Board(columns = 6, rows = 6),
+            snake = Snake(listOf(Cell(2, 2), Cell(2, 1), Cell(1, 1), Cell(1, 2))),
+            currentDirection = Direction.LEFT,
+            pendingDirection = null,
+            score = 30,
+            food = Cell(5, 5),
+        )
+
+        val transition = GameRules.advance(initial)
+
+        assertEquals(StepOutcome.SELF_COLLISION, transition.outcome)
+        assertEquals(CollisionCause.SELF_COLLISION, transition.state.collisionCause)
+        assertEquals(initial.snake, transition.state.snake)
+        assertEquals(initial.food, transition.state.food)
+        assertEquals(30, transition.state.score)
+    }
+
+    @Test
     fun gameStateRejectsFoodOutsideTheBoardOrOnTheSnake() {
         val board = Board()
         val snake = Snake(listOf(Cell(10, 10), Cell(9, 10), Cell(8, 10)))
@@ -144,6 +258,30 @@ class GameRulesTest {
                 pendingDirection = null,
                 score = 0,
                 food = snake.head(),
+            )
+        }
+        assertFailsWith<IllegalArgumentException> {
+            GameState(
+                status = SessionStatus.ACTIVE,
+                board = board,
+                snake = snake,
+                currentDirection = Direction.RIGHT,
+                pendingDirection = null,
+                score = 0,
+                food = Cell(0, 0),
+                collisionCause = CollisionCause.BOUNDARY,
+            )
+        }
+        assertFailsWith<IllegalArgumentException> {
+            GameState(
+                status = SessionStatus.GAME_OVER,
+                board = board,
+                snake = snake,
+                currentDirection = Direction.RIGHT,
+                pendingDirection = null,
+                score = 0,
+                food = Cell(0, 0),
+                collisionCause = null,
             )
         }
     }
@@ -316,16 +454,52 @@ class GameRulesTest {
     }
 
     @Test
-    fun boundaryAttemptDoesNotWrapOrDiscardPendingDirection() {
+    fun gameOverIsAbsorbingForAdvanceAndEveryDirectionRequest() {
+        val terminal = GameRules.advance(
+            GameState(
+                status = SessionStatus.ACTIVE,
+                board = Board(columns = 2, rows = 2),
+                snake = Snake(listOf(Cell(1, 0))),
+                currentDirection = Direction.RIGHT,
+                pendingDirection = null,
+                score = 30,
+                food = Cell(0, 1),
+            ),
+        ).state
+
+        assertEquals(SessionStatus.GAME_OVER, terminal.status)
+        assertEquals(CollisionCause.BOUNDARY, terminal.collisionCause)
+
+        val repeatedStep = GameRules.advance(terminal)
+        assertEquals(StepOutcome.NOT_ACTIVE, repeatedStep.outcome)
+        assertEquals(terminal, repeatedStep.state)
+
+        Direction.values().forEach { direction ->
+            val request = GameRules.requestDirection(terminal, direction)
+            assertEquals(DirectionRequestResult.IGNORED_INACTIVE, request.result)
+            assertEquals(terminal, request.state)
+        }
+    }
+
+    @Test
+    fun collisionMessagesExplainBothTerminalCauses() {
+        assertTrue(collisionMessage(CollisionCause.BOUNDARY).contains("boundary"))
+        assertTrue(collisionMessage(CollisionCause.SELF_COLLISION).contains("body"))
+    }
+
+    @Test
+    fun boundaryAttemptEndsTheGameWithoutWrappingOrMovingTheSnake() {
         val initial = GameRules.startNewGame(Board(columns = 5, rows = 1)).copy(food = Cell(4, 0))
         val atRightEdge = GameRules.advance(initial).state
         val pendingAtEdge = GameRules.requestDirection(atRightEdge, Direction.UP).state
 
         val transition = GameRules.advance(pendingAtEdge)
 
-        assertEquals(StepOutcome.BOUNDARY_BLOCKED, transition.outcome)
-        assertEquals(pendingAtEdge, transition.state)
+        assertEquals(StepOutcome.BOUNDARY_COLLISION, transition.outcome)
+        assertEquals(SessionStatus.GAME_OVER, transition.state.status)
+        assertEquals(CollisionCause.BOUNDARY, transition.state.collisionCause)
+        assertEquals(pendingAtEdge.snake, transition.state.snake)
         assertEquals(Cell(3, 0), transition.state.snake.head())
-        assertEquals(Direction.UP, transition.state.pendingDirection)
+        assertEquals(null, transition.state.pendingDirection)
     }
 }

@@ -43,8 +43,10 @@ import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.unit.dp
 import com.example.snake.game.input.GameKey
 import com.example.snake.game.input.KeyboardDirectionMapper
+import com.example.snake.game.model.CollisionCause
 import com.example.snake.game.model.Direction
 import com.example.snake.game.model.GameState
+import com.example.snake.game.model.SessionStatus
 
 @Composable
 fun GameScreen(
@@ -57,7 +59,7 @@ fun GameScreen(
     val focusRequester = remember { FocusRequester() }
 
     LaunchedEffect(state.status, capabilities.keyboard) {
-        if (capabilities.keyboard && state.status == com.example.snake.game.model.SessionStatus.ACTIVE) {
+        if (capabilities.keyboard && state.status == SessionStatus.ACTIVE) {
             focusRequester.requestFocus()
         }
     }
@@ -74,17 +76,17 @@ fun GameScreen(
         modifier = modifier
             .fillMaxSize()
             .focusRequester(focusRequester)
-            .focusable(enabled = capabilities.keyboard)
+            .focusable(enabled = capabilities.keyboard && state.status == SessionStatus.ACTIVE)
             .then(keyboardModifier),
     ) {
         // A scrollable Column is measured with an unbounded height. Calculate the board size
         // from the window constraints before entering that scrollable layout so the initial
         // action and the active controls remain reachable in the default desktop window.
         val availableHeight = if (maxHeight.value.isFinite()) maxHeight else maxWidth
-        val boardFraction = when {
-            state.status == com.example.snake.game.model.SessionStatus.READY -> 0.44f
-            capabilities.touch -> 0.34f
-            else -> 0.58f
+        val boardFraction = when (state.status) {
+            SessionStatus.READY -> 0.44f
+            SessionStatus.ACTIVE -> if (capabilities.touch) 0.34f else 0.58f
+            SessionStatus.GAME_OVER -> 0.58f
         }
         val boardSize = maxOf(1.dp, minOf(maxWidth - 32.dp, availableHeight * boardFraction))
 
@@ -100,46 +102,84 @@ fun GameScreen(
             Text(
                 text = "Score: ${state.score}",
                 style = MaterialTheme.typography.titleMedium,
-                modifier = Modifier.semantics { contentDescription = "Current score: ${state.score}" },
+                modifier = Modifier.semantics {
+                    contentDescription = when (state.status) {
+                        SessionStatus.READY, SessionStatus.ACTIVE -> "Current score: ${state.score}"
+                        SessionStatus.GAME_OVER -> "Final score: ${state.score}"
+                    }
+                },
             )
             Spacer(modifier = Modifier.size(8.dp))
 
-            if (state.status == com.example.snake.game.model.SessionStatus.READY) {
-                Text("Ready to play")
-                Spacer(modifier = Modifier.size(8.dp))
-                Button(onClick = onStart) {
-                    Text("Start New Game")
-                }
-                Spacer(modifier = Modifier.size(8.dp))
-                Text(controlHint(capabilities))
-            } else {
-                Text("Direction: ${state.currentDirection.name.lowercase()}")
-                Spacer(modifier = Modifier.size(4.dp))
-                val pendingDirection = state.pendingDirection
-                Text(
-                    // Keep a one-line feedback slot allocated even when it is empty so a
-                    // pending turn cannot move the board when the state changes.
-                    text = pendingDirection?.let {
-                        "Turn accepted: ${it.name.lowercase()}"
-                    } ?: "\u00A0",
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = pendingDirection?.let {
-                        Modifier.semantics {
-                            contentDescription = "Accepted turn: ${it.name.lowercase()}"
-                        }
-                    } ?: Modifier,
-                )
-                if (capabilities.touch) {
-                    Spacer(modifier = Modifier.size(12.dp))
-                    DirectionControls(
-                        selectedDirection = state.pendingDirection,
-                        onDirection = onDirection,
-                    )
-                }
-                if (capabilities.keyboard) {
+            when (state.status) {
+                SessionStatus.READY -> {
+                    Text("Ready to play")
                     Spacer(modifier = Modifier.size(8.dp))
-                    Text("Use Arrow keys or W/A/S/D")
+                    Button(onClick = onStart) {
+                        Text("Start New Game")
+                    }
+                    Spacer(modifier = Modifier.size(8.dp))
+                    Text(controlHint(capabilities))
+                }
+
+                SessionStatus.ACTIVE -> {
+                    Text("Direction: ${state.currentDirection.name.lowercase()}")
+                    Spacer(modifier = Modifier.size(4.dp))
+                    val pendingDirection = state.pendingDirection
+                    Text(
+                        // Keep a one-line feedback slot allocated even when it is empty so a
+                        // pending turn cannot move the board when the state changes.
+                        text = pendingDirection?.let {
+                            "Turn accepted: ${it.name.lowercase()}"
+                        } ?: "\u00A0",
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = pendingDirection?.let {
+                            Modifier.semantics {
+                                contentDescription = "Accepted turn: ${it.name.lowercase()}"
+                            }
+                        } ?: Modifier,
+                    )
+                    if (capabilities.touch) {
+                        Spacer(modifier = Modifier.size(12.dp))
+                        DirectionControls(
+                            selectedDirection = state.pendingDirection,
+                            onDirection = onDirection,
+                        )
+                    }
+                    if (capabilities.keyboard) {
+                        Spacer(modifier = Modifier.size(8.dp))
+                        Text("Use Arrow keys or W/A/S/D")
+                    }
+                }
+
+                SessionStatus.GAME_OVER -> {
+                    Text(
+                        text = "Game Over",
+                        modifier = Modifier.semantics {
+                            contentDescription = "Game over"
+                            stateDescription = "Game over"
+                        },
+                    )
+                    Spacer(modifier = Modifier.size(8.dp))
+                    state.collisionCause?.let { cause ->
+                        Text(
+                            text = collisionMessage(cause),
+                            modifier = Modifier.semantics {
+                                contentDescription = collisionMessage(cause)
+                            },
+                        )
+                    }
+                    Spacer(modifier = Modifier.size(8.dp))
+                    Button(
+                        onClick = onStart,
+                        modifier = Modifier.semantics {
+                            contentDescription = "Restart game"
+                            role = Role.Button
+                        },
+                    ) {
+                        Text("Restart Game")
+                    }
                 }
             }
             Spacer(modifier = Modifier.size(12.dp))
@@ -253,12 +293,17 @@ private fun controlHint(capabilities: InputCapabilities): String = when {
     else -> "Choose a supported control surface to steer"
 }
 
+internal fun collisionMessage(cause: CollisionCause): String = when (cause) {
+    CollisionCause.BOUNDARY -> "The snake hit the board boundary"
+    CollisionCause.SELF_COLLISION -> "The snake hit its body"
+}
+
 private fun handleKeyboardEvent(
     event: KeyEvent,
     state: GameState,
     onDirection: (Direction) -> Unit,
 ): Boolean {
-    if (state.status != com.example.snake.game.model.SessionStatus.ACTIVE ||
+    if (state.status != SessionStatus.ACTIVE ||
         event.type != KeyEventType.KeyDown
     ) {
         return false

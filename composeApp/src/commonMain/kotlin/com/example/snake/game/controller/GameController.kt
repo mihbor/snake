@@ -31,6 +31,7 @@ class GameController(
 
     private val _state = MutableStateFlow(readyState())
     private var movementJob: Job? = null
+    private var sessionGeneration = 0L
     private var closed = false
 
     val state: StateFlow<GameState> = _state.asStateFlow()
@@ -38,6 +39,9 @@ class GameController(
     fun startNewGame() {
         if (closed) return
 
+        sessionGeneration += 1
+        movementJob?.cancel()
+        movementJob = null
         _state.value = GameRules.startNewGame(random = random)
         startClock()
     }
@@ -60,18 +64,27 @@ class GameController(
     }
 
     fun advanceForTest(): StepOutcome {
-        if (closed) return StepOutcome.NOT_ACTIVE
+        return advanceForGeneration(sessionGeneration)
+    }
+
+    private fun advanceForGeneration(generation: Long): StepOutcome {
+        if (closed || generation != sessionGeneration) return StepOutcome.NOT_ACTIVE
 
         var outcome = StepOutcome.NOT_ACTIVE
+        var shouldStopClock = false
         _state.update { currentState ->
-            if (closed) {
+            if (closed || generation != sessionGeneration) {
                 outcome = StepOutcome.NOT_ACTIVE
                 currentState
             } else {
                 val transition = GameRules.advance(currentState, random = random)
                 outcome = transition.outcome
+                shouldStopClock = transition.state.status == SessionStatus.GAME_OVER
                 transition.state
             }
+        }
+        if (shouldStopClock) {
+            stopMovementClock(generation)
         }
         return outcome
     }
@@ -79,9 +92,10 @@ class GameController(
     fun startClock() {
         if (closed || _state.value.status != SessionStatus.ACTIVE || movementJob?.isActive == true) return
 
+        val generation = sessionGeneration
         movementJob = scope.launch {
             movementClock.ticks(movementIntervalMillis).collect {
-                advanceForTest()
+                advanceForGeneration(generation)
             }
         }
     }
@@ -90,9 +104,17 @@ class GameController(
         if (closed) return
 
         closed = true
+        sessionGeneration += 1
         movementJob?.cancel()
         movementJob = null
         scope.cancel()
+    }
+
+    private fun stopMovementClock(generation: Long) {
+        if (generation != sessionGeneration) return
+
+        movementJob?.cancel()
+        movementJob = null
     }
 
     private fun readyState(): GameState =

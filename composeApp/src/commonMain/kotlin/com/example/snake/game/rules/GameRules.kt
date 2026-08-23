@@ -2,6 +2,7 @@ package com.example.snake.game.rules
 
 import com.example.snake.game.model.Board
 import com.example.snake.game.model.Cell
+import com.example.snake.game.model.CollisionCause
 import com.example.snake.game.model.Direction
 import com.example.snake.game.model.GameState
 import com.example.snake.game.model.SessionStatus
@@ -38,6 +39,7 @@ object GameRules {
             pendingDirection = null,
             score = 0,
             food = food,
+            collisionCause = null,
         )
     }
 
@@ -80,8 +82,19 @@ object GameRules {
             row = state.snake.head().row + offset.row,
         )
         if (!state.board.contains(nextHead)) {
-            // A blocked step is a no-op, so a pending turn remains available for a later rule.
-            return StepTransition(state, StepOutcome.BOUNDARY_BLOCKED)
+            return StepTransition(
+                state = gameOver(state, cause = CollisionCause.BOUNDARY),
+                outcome = StepOutcome.BOUNDARY_COLLISION,
+            )
+        }
+
+        // The literal current-body policy includes the tail; collision is checked before any
+        // movement operation can drop it.
+        if (nextHead in state.snake.segments) {
+            return StepTransition(
+                state = gameOver(state, cause = CollisionCause.SELF_COLLISION),
+                outcome = StepOutcome.SELF_COLLISION,
+            )
         }
 
         if (nextHead == state.food) {
@@ -110,6 +123,15 @@ object GameRules {
             outcome = StepOutcome.MOVED,
         )
     }
+
+    private fun gameOver(
+        state: GameState,
+        cause: CollisionCause,
+    ): GameState = state.copy(
+        status = SessionStatus.GAME_OVER,
+        pendingDirection = null,
+        collisionCause = cause,
+    )
 
     private fun randomUnoccupiedCell(board: Board, snake: Snake, random: Random): Cell? {
         val availableCells = mutableListOf<Cell>()

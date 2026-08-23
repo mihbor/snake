@@ -4,6 +4,7 @@ import com.example.snake.game.controller.GameController
 import com.example.snake.game.controller.CoroutineMovementClock
 import com.example.snake.game.controller.MovementClock
 import com.example.snake.game.model.Cell
+import com.example.snake.game.model.CollisionCause
 import com.example.snake.game.model.Direction
 import com.example.snake.game.model.SessionStatus
 import com.example.snake.game.rules.DirectionRequestResult
@@ -51,7 +52,7 @@ class GameControllerTest {
 
         try {
             controller.startNewGame()
-            controller.startNewGame()
+            controller.startClock()
             runCurrent()
 
             assertEquals(1, clock.startCount)
@@ -140,6 +141,75 @@ class GameControllerTest {
     }
 
     @Test
+    fun gameOverStopsTheClockBlocksInputAndRestartUsesOneFreshClock() = runTest {
+        val dispatcher = StandardTestDispatcher(testScheduler)
+        val scope = CoroutineScope(dispatcher + SupervisorJob())
+        val clock = ManualMovementClock()
+        val controller = GameController(
+            scope = scope,
+            movementClock = clock,
+            random = ZeroRandom(),
+        )
+
+        try {
+            controller.startNewGame()
+            runCurrent()
+            assertEquals(1, clock.startCount)
+
+            assertEquals(DirectionRequestResult.ACCEPTED, controller.requestDirection(Direction.UP))
+            repeat(10) {
+                clock.tick()
+                runCurrent()
+            }
+            assertEquals(Cell(10, 0), controller.state.value.snake.head())
+
+            clock.tick()
+            runCurrent()
+
+            val terminal = controller.state.value
+            assertEquals(SessionStatus.GAME_OVER, terminal.status)
+            assertEquals(CollisionCause.BOUNDARY, terminal.collisionCause)
+            assertEquals(0, terminal.score)
+            assertEquals(Cell(10, 0), terminal.snake.head())
+            assertEquals(1, clock.startCount)
+            assertEquals(DirectionRequestResult.IGNORED_INACTIVE, controller.requestDirection(Direction.LEFT))
+
+            repeat(3) {
+                clock.tick()
+                runCurrent()
+            }
+            assertEquals(terminal, controller.state.value)
+            controller.startClock()
+            runCurrent()
+            assertEquals(1, clock.startCount)
+
+            controller.startNewGame()
+            val freshBaseline = controller.state.value
+            assertEquals(SessionStatus.ACTIVE, freshBaseline.status)
+            assertEquals(3, freshBaseline.snake.segments.size)
+            assertEquals(Cell(10, 10), freshBaseline.snake.head())
+            assertEquals(Direction.RIGHT, freshBaseline.currentDirection)
+            assertEquals(null, freshBaseline.pendingDirection)
+            assertEquals(0, freshBaseline.score)
+            assertTrue(freshBaseline.board.contains(freshBaseline.food))
+            assertTrue(freshBaseline.food !in freshBaseline.snake.segments)
+
+            // This emission can only reach the cancelled collector; the new generation must ignore it.
+            clock.tick()
+            runCurrent()
+            assertEquals(freshBaseline, controller.state.value)
+            assertEquals(2, clock.startCount)
+
+            clock.tick()
+            runCurrent()
+            assertEquals(Cell(11, 10), controller.state.value.snake.head())
+            assertEquals(SessionStatus.ACTIVE, controller.state.value.status)
+        } finally {
+            controller.close()
+        }
+    }
+
+    @Test
     fun closedControllerDoesNotChangeStateOrAcceptActions() {
         val controller = testController()
         controller.startNewGame()
@@ -182,4 +252,8 @@ private class FirstThenOtherRowRandom : Random() {
 
     override fun nextBits(bitCount: Int): Int =
         if (calls++ < 2) 0 else 395
+}
+
+private class ZeroRandom : Random() {
+    override fun nextBits(bitCount: Int): Int = 0
 }
