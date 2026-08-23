@@ -17,11 +17,13 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlin.random.Random
 
 class GameController(
     private val scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Default),
     private val movementClock: MovementClock = CoroutineMovementClock(),
     private val movementIntervalMillis: Long = DEFAULT_MOVEMENT_INTERVAL_MILLIS,
+    private val random: Random = Random.Default,
 ) : AutoCloseable {
     companion object {
         const val DEFAULT_MOVEMENT_INTERVAL_MILLIS = 150L
@@ -36,7 +38,7 @@ class GameController(
     fun startNewGame() {
         if (closed) return
 
-        _state.value = GameRules.startNewGame()
+        _state.value = GameRules.startNewGame(random = random)
         startClock()
     }
 
@@ -66,7 +68,7 @@ class GameController(
                 outcome = StepOutcome.NOT_ACTIVE
                 currentState
             } else {
-                val transition = GameRules.advance(currentState)
+                val transition = GameRules.advance(currentState, random = random)
                 outcome = transition.outcome
                 transition.state
             }
@@ -93,5 +95,6 @@ class GameController(
         scope.cancel()
     }
 
-    private fun readyState(): GameState = GameRules.startNewGame().copy(status = SessionStatus.READY)
+    private fun readyState(): GameState =
+        GameRules.startNewGame(random = random).copy(status = SessionStatus.READY)
 }

@@ -19,6 +19,7 @@ import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
+import kotlin.random.Random
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
@@ -43,7 +44,10 @@ class GameControllerTest {
         val dispatcher = StandardTestDispatcher(testScheduler)
         val scope = CoroutineScope(dispatcher + SupervisorJob())
         val clock = ManualMovementClock()
-        val controller = GameController(scope = scope, movementClock = clock)
+        val controller = GameController(
+            scope = scope,
+            movementClock = clock,
+        )
 
         try {
             controller.startNewGame()
@@ -92,7 +96,11 @@ class GameControllerTest {
         val dispatcher = StandardTestDispatcher(testScheduler)
         val scope = CoroutineScope(dispatcher + SupervisorJob())
         val clock = ManualMovementClock()
-        val controller = GameController(scope = scope, movementClock = clock)
+        val controller = GameController(
+            scope = scope,
+            movementClock = clock,
+            random = FirstThenOtherRowRandom(),
+        )
 
         try {
             controller.startNewGame()
@@ -123,6 +131,7 @@ class GameControllerTest {
             assertEquals(Cell(0, 0), collected.snake.head())
             assertEquals(4, collected.snake.segments.size)
             assertEquals(10, collected.score)
+            assertTrue(collected.food.row > 0)
             assertTrue(collected.food !in collected.snake.segments)
             assertTrue(collected.board.contains(collected.food))
         } finally {
@@ -166,4 +175,11 @@ private class ManualMovementClock : MovementClock {
     fun tick() {
         ticks.tryEmit(Unit)
     }
+}
+
+private class FirstThenOtherRowRandom : Random() {
+    private var calls = 0
+
+    override fun nextBits(bitCount: Int): Int =
+        if (calls++ < 2) 0 else 395
 }

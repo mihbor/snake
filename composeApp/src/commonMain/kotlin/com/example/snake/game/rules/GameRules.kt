@@ -6,13 +6,17 @@ import com.example.snake.game.model.Direction
 import com.example.snake.game.model.GameState
 import com.example.snake.game.model.SessionStatus
 import com.example.snake.game.model.Snake
+import kotlin.random.Random
 
 object GameRules {
     /**
      * Creates a fresh active game with the head at the integer center of the board and the body
      * extending left. The default board therefore starts at (10, 10), (9, 10), and (8, 10).
      */
-    fun startNewGame(board: Board = Board(20, 20)): GameState {
+    fun startNewGame(
+        board: Board = Board(20, 20),
+        random: Random = Random.Default,
+    ): GameState {
         val head = Cell(column = board.columns / 2, row = board.rows / 2)
         val initialSegments = listOf(
             head,
@@ -23,7 +27,7 @@ object GameRules {
             "Board is too small for the centered three-segment snake"
         }
         val initialSnake = Snake(initialSegments)
-        val food = firstUnoccupiedCell(board, initialSnake)
+        val food = randomUnoccupiedCell(board, initialSnake, random)
             ?: throw IllegalArgumentException("Board has no free cell for food")
 
         return GameState(
@@ -64,7 +68,7 @@ object GameRules {
         )
     }
 
-    fun advance(state: GameState): StepTransition {
+    fun advance(state: GameState, random: Random = Random.Default): StepTransition {
         if (state.status != SessionStatus.ACTIVE) {
             return StepTransition(state, StepOutcome.NOT_ACTIVE)
         }
@@ -82,7 +86,7 @@ object GameRules {
 
         if (nextHead == state.food) {
             val grownSnake = state.snake.moveToAndGrow(nextHead)
-            val replacementFood = firstUnoccupiedCell(state.board, grownSnake)
+            val replacementFood = randomUnoccupiedCell(state.board, grownSnake, random)
                 ?: return StepTransition(state, StepOutcome.FOOD_COLLECTION_BLOCKED)
 
             return StepTransition(
@@ -107,13 +111,17 @@ object GameRules {
         )
     }
 
-    private fun firstUnoccupiedCell(board: Board, snake: Snake): Cell? {
+    private fun randomUnoccupiedCell(board: Board, snake: Snake, random: Random): Cell? {
+        val availableCells = mutableListOf<Cell>()
         for (row in 0 until board.rows) {
             for (column in 0 until board.columns) {
                 val candidate = Cell(column = column, row = row)
-                if (candidate !in snake.segments) return candidate
+                if (candidate !in snake.segments) {
+                    availableCells += candidate
+                }
             }
         }
-        return null
+        if (availableCells.isEmpty()) return null
+        return availableCells[random.nextInt(availableCells.size)]
     }
 }

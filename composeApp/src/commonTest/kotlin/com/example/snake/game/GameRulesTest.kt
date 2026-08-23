@@ -9,6 +9,7 @@ import com.example.snake.game.model.Snake
 import com.example.snake.game.rules.DirectionRequestResult
 import com.example.snake.game.rules.GameRules
 import com.example.snake.game.rules.StepOutcome
+import kotlin.random.Random
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
@@ -56,8 +57,8 @@ class GameRulesTest {
     }
 
     @Test
-    fun startingCreatesDeterministicActiveGame() {
-        val state = GameRules.startNewGame()
+    fun startingCreatesActiveGameWithDeterministicSeed() {
+        val state = GameRules.startNewGame(random = Random(0))
 
         assertEquals(SessionStatus.ACTIVE, state.status)
         assertEquals(Board(20, 20), state.board)
@@ -68,12 +69,20 @@ class GameRulesTest {
         assertEquals(Direction.RIGHT, state.currentDirection)
         assertEquals(null, state.pendingDirection)
         assertEquals(0, state.score)
-        assertEquals(Cell(0, 0), state.food)
         assertTrue(state.snake.segments.distinct().size == 3)
         assertTrue(state.snake.segments.all(state.board::contains))
         assertTrue(state.food !in state.snake.segments)
         assertTrue(state.board.contains(state.food))
-        assertEquals(state, GameRules.startNewGame())
+        assertEquals(state, GameRules.startNewGame(random = Random(0)))
+    }
+
+    @Test
+    fun freshGamesCanPlaceFoodBelowTheTopRow() {
+        val foods = (0 until 32).map { seed ->
+            GameRules.startNewGame(random = Random(seed)).food
+        }
+
+        assertTrue(foods.any { it.row > 0 }, "Food should be able to spawn below the top row")
     }
 
     @Test
@@ -158,7 +167,6 @@ class GameRulesTest {
         assertEquals(10, transition.state.score)
         assertEquals(Direction.RIGHT, transition.state.currentDirection)
         assertEquals(null, transition.state.pendingDirection)
-        assertEquals(Cell(0, 0), transition.state.food)
         assertTrue(transition.state.food !in transition.state.snake.segments)
         assertTrue(transition.state.board.contains(transition.state.food))
     }
