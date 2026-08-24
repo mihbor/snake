@@ -9,6 +9,8 @@ enum class GameKey {
     A,
     S,
     D,
+    Q,
+    E,
     P,
     SPACE,
 }

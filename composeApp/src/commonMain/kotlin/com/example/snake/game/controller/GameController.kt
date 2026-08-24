@@ -134,7 +134,6 @@ class GameController(
     fun startClock() {
         if (closed ||
             _state.value.status != SessionStatus.ACTIVE ||
-            _state.value.mode == PlayMode.THREE_D ||
             movementJob?.isActive == true
         ) return
 

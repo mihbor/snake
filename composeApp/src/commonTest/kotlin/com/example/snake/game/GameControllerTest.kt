@@ -55,7 +55,7 @@ class GameControllerTest {
             assertEquals(PlayMode.THREE_D, controller.selectedMode.value)
             assertEquals(SessionStatus.READY, controller.state.value.status)
             assertEquals(PlayMode.THREE_D, controller.state.value.mode)
-            assertEquals(3, controller.state.value.board.depth)
+            assertEquals(5, controller.state.value.board.depth)
 
             controller.selectMode(PlayMode.TWO_D)
 
@@ -88,20 +88,24 @@ class GameControllerTest {
             assertEquals(SessionStatus.ACTIVE, active.status)
             assertEquals(PlayMode.THREE_D, active.mode)
             assertEquals(0, active.score)
-            assertEquals(0, clock.startCount)
+            assertEquals(1, clock.startCount)
             assertEquals(
-                DirectionRequestResult.IGNORED_UNSUPPORTED_MODE,
+                DirectionRequestResult.ACCEPTED,
                 controller.requestDirection(Direction.UP),
             )
-            assertEquals(StepOutcome.UNSUPPORTED_MODE, controller.advanceForTest())
+            // advance applies the pending UP turn
+            val afterAdvance = controller.advanceForTest()
+            assertEquals(StepOutcome.MOVED, afterAdvance)
+            assertEquals(Direction.UP, controller.state.value.currentDirection)
 
             controller.selectMode(PlayMode.TWO_D)
             clock.tick()
             runCurrent()
 
             assertEquals(PlayMode.THREE_D, controller.selectedMode.value)
-            assertEquals(active, controller.state.value)
-            assertEquals(0, clock.startCount)
+            // mode locked during ACTIVE, tick advances in 3D
+            assertEquals(PlayMode.THREE_D, controller.state.value.mode)
+            assertEquals(1, clock.startCount)
         } finally {
             controller.close()
         }

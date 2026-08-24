@@ -8,6 +8,8 @@ object KeyboardDirectionMapper {
         GameKey.ARROW_DOWN, GameKey.S -> Direction.DOWN
         GameKey.ARROW_LEFT, GameKey.A -> Direction.LEFT
         GameKey.ARROW_RIGHT, GameKey.D -> Direction.RIGHT
+        GameKey.Q -> Direction.FORWARD
+        GameKey.E -> Direction.BACKWARD
         GameKey.P, GameKey.SPACE -> null
     }
 }
