@@ -90,10 +90,10 @@ fun GameScreen(
         // action and the active controls remain reachable in the default desktop window.
         val availableHeight = if (maxHeight.value.isFinite()) maxHeight else maxWidth
         val boardFraction = when (state.status) {
-            SessionStatus.READY -> 0.44f
-            SessionStatus.ACTIVE -> if (capabilities.touch) 0.34f else 0.58f
-            SessionStatus.PAUSED -> if (capabilities.touch) 0.34f else 0.58f
-            SessionStatus.GAME_OVER -> 0.58f
+            SessionStatus.READY -> 0.38f
+            SessionStatus.ACTIVE -> if (capabilities.touch) 0.30f else 0.40f
+            SessionStatus.PAUSED -> if (capabilities.touch) 0.30f else 0.40f
+            SessionStatus.GAME_OVER -> 0.40f
         }
         val boardSize = maxOf(1.dp, minOf(maxWidth - 32.dp, availableHeight * boardFraction))
 
