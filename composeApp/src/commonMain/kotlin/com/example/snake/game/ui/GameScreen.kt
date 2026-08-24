@@ -165,27 +165,21 @@ fun GameScreen(
                 }
 
                 SessionStatus.ACTIVE -> {
-                    if (state.mode == PlayMode.THREE_D) {
-                        Text("3D session ready")
-                    } else {
-                        Text("Direction: ${state.currentDirection.name.lowercase()}")
-                        Spacer(modifier = Modifier.size(4.dp))
-                        val pendingDirection = state.pendingDirection
-                        Text(
-                            // Keep a one-line feedback slot allocated even when it is empty so a
-                            // pending turn cannot move the board when the state changes.
-                            text = pendingDirection?.let {
-                                "Turn accepted: ${it.name.lowercase()}"
-                            } ?: "\u00A0",
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                            modifier = pendingDirection?.let {
-                                Modifier.semantics {
-                                    contentDescription = "Accepted turn: ${it.name.lowercase()}"
-                                }
-                            } ?: Modifier,
-                        )
-                    }
+                    Text("Direction: ${state.currentDirection.name.lowercase()}")
+                    Spacer(modifier = Modifier.size(4.dp))
+                    val pendingDirection = state.pendingDirection
+                    Text(
+                        text = pendingDirection?.let {
+                            "Turn accepted: ${it.name.lowercase()}"
+                        } ?: "\u00A0",
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = pendingDirection?.let {
+                            Modifier.semantics {
+                                contentDescription = "Accepted turn: ${it.name.lowercase()}"
+                            }
+                        } ?: Modifier,
+                    )
                     Spacer(modifier = Modifier.size(12.dp))
                     Button(
                         onClick = onPause,
@@ -198,7 +192,10 @@ fun GameScreen(
                     }
                     if (state.mode == PlayMode.THREE_D) {
                         Spacer(modifier = Modifier.size(12.dp))
-                        ThreeDControls()
+                        ThreeDControls(
+                            selectedDirection = state.pendingDirection,
+                            onDirection = onDirection,
+                        )
                     } else if (capabilities.touch) {
                         Spacer(modifier = Modifier.size(12.dp))
                         DirectionControls(
@@ -206,9 +203,13 @@ fun GameScreen(
                             onDirection = onDirection,
                         )
                     }
-                    if (capabilities.keyboard && state.mode == PlayMode.TWO_D) {
+                    if (capabilities.keyboard) {
                         Spacer(modifier = Modifier.size(8.dp))
-                        Text("Use Arrow keys or W/A/S/D to steer. Press P or Space to pause.")
+                        Text(
+                            if (state.mode == PlayMode.THREE_D)
+                                "Use Arrow keys or W/A/S/D to steer, Q/E for depth. Press P or Space to pause."
+                            else "Use Arrow keys or W/A/S/D to steer. Press P or Space to pause."
+                        )
                     }
                 }
 
@@ -376,7 +377,7 @@ private fun ThreeDSnakeBoard(state: GameState, modifier: Modifier = Modifier) {
         for (depth in state.board.depth - 1 downTo 0) {
             val layerPosition = Offset(depth * layerOffset, depth * layerOffset)
             drawRect(
-                color = boardColor.copy(alpha = 0.72f),
+                color = boardColor.copy(alpha = 0.38f),
                 topLeft = layerPosition,
                 size = Size(planeWidth, planeHeight),
             )
@@ -541,36 +542,58 @@ internal fun threeDControlLabel(control: ThreeDControl): String = when (control)
 }
 
 @Composable
-private fun ThreeDControls() {
+private fun ThreeDControls(
+    selectedDirection: Direction?,
+    onDirection: (Direction) -> Unit,
+) {
+    val mapping = mapOf(
+        ThreeDControl.UP to Direction.UP,
+        ThreeDControl.DOWN to Direction.DOWN,
+        ThreeDControl.LEFT to Direction.LEFT,
+        ThreeDControl.RIGHT to Direction.RIGHT,
+        ThreeDControl.FORWARD to Direction.FORWARD,
+        ThreeDControl.BACKWARD to Direction.BACKWARD,
+    )
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
         Text("3D movement controls")
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             ThreeDControl.values().take(3).forEach { control ->
-                ThreeDControlButton(control)
+                ThreeDControlButton(control, selectedDirection, mapping, onDirection)
             }
         }
         Spacer(modifier = Modifier.size(8.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             ThreeDControl.values().drop(3).forEach { control ->
-                ThreeDControlButton(control)
+                ThreeDControlButton(control, selectedDirection, mapping, onDirection)
             }
         }
     }
 }
 
 @Composable
-private fun ThreeDControlButton(control: ThreeDControl) {
+private fun ThreeDControlButton(
+    control: ThreeDControl,
+    selectedDirection: Direction?,
+    mapping: Map<ThreeDControl, Direction>,
+    onDirection: (Direction) -> Unit,
+) {
     val label = threeDControlLabel(control)
+    val direction = mapping[control]!!
+    val selected = selectedDirection == direction
     Button(
-        onClick = {},
-        enabled = false,
+        onClick = { onDirection(direction) },
         modifier = Modifier
             .sizeIn(minWidth = 64.dp, minHeight = 48.dp)
             .semantics {
-                contentDescription = "3D move $label"
+                contentDescription = "Move ${direction.name.lowercase()}"
                 role = Role.Button
-                stateDescription = "Unavailable until 3D movement is implemented"
+                stateDescription = if (selected) "Selected" else "Not selected"
             },
+        colors = if (selected) {
+            ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
+        } else {
+            ButtonDefaults.buttonColors()
+        },
     ) {
         Text(label)
     }
@@ -612,10 +635,6 @@ private fun handleKeyboardEvent(
         return true
     }
 
-    if (state.mode == PlayMode.THREE_D) {
-        return KeyboardDirectionMapper.toDirection(gameKey) != null
-    }
-
     val direction = KeyboardDirectionMapper.toDirection(gameKey) ?: return false
     onDirection(direction)
     return true
@@ -630,6 +649,8 @@ internal fun Key.toGameKey(): GameKey? = when (this) {
     Key.A -> GameKey.A
     Key.S -> GameKey.S
     Key.D -> GameKey.D
+    Key.Q -> GameKey.Q
+    Key.E -> GameKey.E
     Key.P -> GameKey.P
     Key.Spacebar -> GameKey.SPACE
     else -> null
@@ -640,4 +661,6 @@ private fun Direction.label(): String = when (this) {
     Direction.DOWN -> "Down"
     Direction.LEFT -> "Left"
     Direction.RIGHT -> "Right"
+    Direction.FORWARD -> "Forward"
+    Direction.BACKWARD -> "Backward"
 }

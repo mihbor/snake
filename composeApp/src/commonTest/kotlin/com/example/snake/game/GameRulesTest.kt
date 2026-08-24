@@ -95,9 +95,9 @@ class GameRulesTest {
 
         assertEquals(SessionStatus.ACTIVE, state.status)
         assertEquals(PlayMode.THREE_D, state.mode)
-        assertEquals(Board(columns = 20, rows = 20, depth = 3), state.board)
+        assertEquals(Board(columns = 20, rows = 20, depth = 5), state.board)
         assertEquals(
-            listOf(Cell(10, 10, 1), Cell(9, 10, 1), Cell(8, 10, 1)),
+            listOf(Cell(10, 10, 2), Cell(9, 10, 2), Cell(8, 10, 2)),
             state.snake.segments,
         )
         assertEquals(Direction.RIGHT, state.currentDirection)
@@ -579,12 +579,11 @@ class GameRulesTest {
         val state = GameRules.startNewGame(mode = PlayMode.THREE_D, random = Random(0))
 
         val request = GameRules.requestDirection(state, Direction.UP)
-        val transition = GameRules.advance(state)
+        val transition = GameRules.advance(request.state)
 
-        assertEquals(DirectionRequestResult.IGNORED_UNSUPPORTED_MODE, request.result)
-        assertEquals(state, request.state)
-        assertEquals(StepOutcome.UNSUPPORTED_MODE, transition.outcome)
-        assertEquals(state, transition.state)
+        assertEquals(DirectionRequestResult.ACCEPTED, request.result)
+        assertEquals(StepOutcome.MOVED, transition.outcome)
+        assertEquals(Direction.UP, transition.state.currentDirection)
     }
 
     @Test

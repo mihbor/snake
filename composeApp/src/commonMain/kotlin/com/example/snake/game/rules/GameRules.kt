@@ -81,10 +81,6 @@ object GameRules {
             return DirectionRequest(state, DirectionRequestResult.IGNORED_INACTIVE)
         }
 
-        if (state.mode == PlayMode.THREE_D) {
-            return DirectionRequest(state, DirectionRequestResult.IGNORED_UNSUPPORTED_MODE)
-        }
-
         if (requested == state.currentDirection.opposite()) {
             return DirectionRequest(state, DirectionRequestResult.IGNORED_REVERSAL)
         }
@@ -106,10 +102,6 @@ object GameRules {
     fun advance(state: GameState, random: Random = Random.Default): StepTransition {
         if (state.status != SessionStatus.ACTIVE) {
             return StepTransition(state, StepOutcome.NOT_ACTIVE)
-        }
-
-        if (state.mode == PlayMode.THREE_D) {
-            return StepTransition(state, StepOutcome.UNSUPPORTED_MODE)
         }
 
         val effectiveDirection = state.pendingDirection ?: state.currentDirection
@@ -189,6 +181,6 @@ object GameRules {
 
     private fun defaultBoard(mode: PlayMode): Board = when (mode) {
         PlayMode.TWO_D -> Board(columns = 20, rows = 20, depth = 1)
-        PlayMode.THREE_D -> Board(columns = 20, rows = 20, depth = 3)
+        PlayMode.THREE_D -> Board(columns = 20, rows = 20, depth = 5)
     }
 }
